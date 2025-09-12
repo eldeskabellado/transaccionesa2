@@ -1,0 +1,65 @@
+unit UnitProveedor;
+
+interface
+
+uses
+  Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants, System.Classes, Vcl.Graphics,
+  Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Data.DB, Vcl.StdCtrls, Vcl.Grids,
+  Vcl.DBGrids, dbisamtb;
+
+type
+  TFormBuscarProveedor = class(TForm)
+    sqproveedor: TDBISAMQuery;
+    dsqproveedores: TDataSource;
+    DBGrid1: TDBGrid;
+    Button1: TButton;
+    edtProveedor: TEdit;
+    procedure FormShow(Sender: TObject);
+    procedure Button1Click(Sender: TObject);
+    procedure DBGrid1DblClick(Sender: TObject);
+  private
+    { Private declarations }
+  public
+    { Public declarations }
+    codigoProveedor,
+    nombreProveedor : string;
+  end;
+
+var
+  FormBuscarProveedor: TFormBuscarProveedor;
+
+implementation
+
+{$R *.dfm}
+
+uses UnitDatos;
+
+procedure TFormBuscarProveedor.Button1Click(Sender: TObject);
+begin
+// abrimos la consulta
+with sqproveedor do
+begin
+  close;
+  
+  parambyname('proveedor').asstring := '%'+edtProveedor.text+'%';
+  open;
+end;
+end;
+
+procedure TFormBuscarProveedor.DBGrid1DblClick(Sender: TObject);
+begin
+//seleccionar el proveedor
+codigoProveedor := sqproveedor.fieldbyname('FP_CODIGO').asstring;
+nombreProveedor := sqproveedor.fieldbyname('FP_DESCRIPCION').asstring;
+close;
+end;
+
+procedure TFormBuscarProveedor.FormShow(Sender: TObject);
+begin
+//al abrir el form
+edtProveedor.clear;
+edtProveedor.SetFocus;
+
+end;
+
+end.

@@ -1,0 +1,125 @@
+object formBuscarArticulo: TformBuscarArticulo
+  Left = 0
+  Top = 0
+  Caption = 'formBuscarArticulo'
+  ClientHeight = 806
+  ClientWidth = 967
+  Color = clWhite
+  Font.Charset = DEFAULT_CHARSET
+  Font.Color = clWindowText
+  Font.Height = -11
+  Font.Name = 'Tahoma'
+  Font.Style = []
+  OldCreateOrder = False
+  Position = poMainFormCenter
+  OnShow = FormShow
+  PixelsPerInch = 96
+  TextHeight = 13
+  object pnl1: TPanel
+    Left = 0
+    Top = 0
+    Width = 967
+    Height = 49
+    Align = alTop
+    BevelOuter = bvNone
+    TabOrder = 0
+    object btnBuscar: TSpeedButton
+      Left = 601
+      Top = 0
+      Width = 112
+      Height = 49
+      Align = alLeft
+      Caption = 'Buscar'
+      OnClick = btnBuscarClick
+    end
+    object editProducto: TEdit
+      Left = 0
+      Top = 0
+      Width = 601
+      Height = 49
+      Align = alLeft
+      Font.Charset = DEFAULT_CHARSET
+      Font.Color = clWindowText
+      Font.Height = -21
+      Font.Name = 'Tahoma'
+      Font.Style = []
+      ParentFont = False
+      TabOrder = 0
+    end
+    object rgBuscar: TRadioGroup
+      Left = 713
+      Top = 0
+      Width = 176
+      Height = 49
+      Align = alLeft
+      Caption = 'Buscar por    '
+      Columns = 2
+      ItemIndex = 0
+      Items.Strings = (
+        'CODIGO'
+        'NOMBRE')
+      TabOrder = 1
+    end
+  end
+  object pnl2: TPanel
+    Left = 0
+    Top = 49
+    Width = 967
+    Height = 757
+    Align = alClient
+    BevelOuter = bvNone
+    TabOrder = 1
+    ExplicitLeft = 544
+    ExplicitTop = 360
+    ExplicitWidth = 185
+    ExplicitHeight = 41
+    object DBGrid1: TDBGrid
+      Left = 0
+      Top = 0
+      Width = 967
+      Height = 757
+      Align = alClient
+      DataSource = dsBuscar
+      Font.Charset = DEFAULT_CHARSET
+      Font.Color = clWindowText
+      Font.Height = -21
+      Font.Name = 'Tahoma'
+      Font.Style = [fsBold]
+      ParentFont = False
+      ReadOnly = True
+      TabOrder = 0
+      TitleFont.Charset = DEFAULT_CHARSET
+      TitleFont.Color = clWindowText
+      TitleFont.Height = -11
+      TitleFont.Name = 'Tahoma'
+      TitleFont.Style = []
+      OnDblClick = DBGrid1DblClick
+      Columns = <
+        item
+          Expanded = False
+          FieldName = 'FI_CODIGO'
+          Title.Caption = 'CODIGO'
+          Width = 146
+          Visible = True
+        end
+        item
+          Expanded = False
+          Title.Caption = 'PRODUCTO'
+          Width = 724
+          Visible = True
+        end>
+    end
+  end
+  object SQBuscar: TDBISAMQuery
+    DatabaseName = 'data2'
+    EngineVersion = '4.49 Build 4'
+    Params = <>
+    Left = 512
+    Top = 225
+  end
+  object dsBuscar: TDataSource
+    DataSet = SQBuscar
+    Left = 600
+    Top = 201
+  end
+end

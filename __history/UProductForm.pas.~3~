@@ -1,0 +1,308 @@
+unit UProductForm;
+
+interface
+
+uses
+  Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants, System.Classes, Vcl.Graphics,
+  Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.StdCtrls, Vcl.ExtCtrls, Vcl.ComCtrls, Vcl.Mask;
+
+type
+  TfrmProducto = class(TForm)
+    // Panel principal
+    pnlMain: TPanel;
+
+    // RadioGroup para idioma
+    rgIdioma: TRadioGroup;
+
+    // Grupo F1.Básico
+    gbBasico: TGroupBox;
+    lblCodigo: TLabel;
+    lblDescripcion: TLabel;
+    lblCategoria: TLabel;
+    lblIVA: TLabel;
+    lblCosto: TLabel;
+    lblPrecio: TLabel;
+    edtCodigo: TEdit;
+    edtDescripcion: TEdit;
+    cmbCategoria: TComboBox;
+    edtIVA: TEdit;
+    edtCosto: TEdit;
+    edtPrecio: TEdit;
+
+    // Campos adicionales del costo
+    lblDivisa1: TLabel;
+    lblGanancia1: TLabel;
+    edtDivisa1: TEdit;
+    edtGanancia1: TEdit;
+    chkAutomatico1: TCheckBox;
+
+    // Campos adicionales del precio
+    lblDivisa2: TLabel;
+    edtDivisa2: TEdit;
+    chkAutomatico2: TCheckBox;
+
+    // Grupo F2.Mayor
+    gbMayor: TGroupBox;
+    lblPrecioHeader: TLabel;
+    lblPaqueteHeader: TLabel;
+    lblGananciaDivisaHeader: TLabel;
+
+    // Fila Bulto
+    lblBulto: TLabel;
+    edtPrecioBulto: TEdit;
+    edtPaqueteBulto: TEdit;
+    edtGananciaBulto: TEdit;
+    edtDivisaBulto: TEdit;
+    chkAutomaticoBulto: TCheckBox;
+
+    // Fila Precio 1
+    lblPrecio1: TLabel;
+    edtPrecio1: TEdit;
+    edtPaquete1: TEdit;
+    edtGanancia1Mayor: TEdit;
+    edtDivisa1Mayor: TEdit;
+    chkAutomatico1Mayor: TCheckBox;
+
+    // Fila Precio 2
+    lblPrecio2: TLabel;
+    edtPrecio2: TEdit;
+    edtPaquete2: TEdit;
+    edtGanancia2Mayor: TEdit;
+    edtDivisa2Mayor: TEdit;
+    chkAutomatico2Mayor: TCheckBox;
+
+    // Fila Precio 3
+    lblPrecio3: TLabel;
+    edtPrecio3: TEdit;
+    edtPaquete3: TEdit;
+    edtGanancia3Mayor: TEdit;
+    edtDivisa3Mayor: TEdit;
+    chkAutomatico3Mayor: TCheckBox;
+
+    // Grupo F3.Comprar
+    gbComprar: TGroupBox;
+    lblBultoCompra: TLabel;
+    lblCantCompra: TLabel;
+    lblStock: TLabel;
+    edtBultoCompra: TEdit;
+    edtCantCompra: TEdit;
+    lblStockInfo: TLabel;
+
+    // Grupo F9.Guarda
+    gbGuarda: TGroupBox;
+    lblEtiqueta: TLabel;
+    lblStock2: TLabel;
+    lblEntregaSolicita: TLabel;
+    chkF12Cartas: TCheckBox;
+    chkSupRom: TCheckBox;
+
+    // Botones
+    btnAceptar: TButton;
+    btnCancelar: TButton;
+
+    procedure FormCreate(Sender: TObject);
+    procedure rgIdiomaClick(Sender: TObject);
+    procedure btnAceptarClick(Sender: TObject);
+    procedure btnCancelarClick(Sender: TObject);
+    procedure chkAutomatico1Click(Sender: TObject);
+    procedure chkAutomatico2Click(Sender: TObject);
+
+  private
+    procedure ConfigurarIdioma;
+    procedure ConfigurarIdiomaEspanol;
+    procedure ConfigurarIdiomaChino;
+    procedure CalcularPrecios;
+
+  public
+    { Public declarations }
+  end;
+
+var
+  frmProducto: TfrmProducto;
+
+implementation
+
+{$R *.dfm}
+
+procedure TfrmProducto.FormCreate(Sender: TObject);
+begin
+  // Configurar RadioGroup de idioma
+  rgIdioma.Items.Clear;
+  rgIdioma.Items.Add('Español');
+  rgIdioma.Items.Add('????'); // Chino tradicional
+  rgIdioma.ItemIndex := 0; // Por defecto español
+
+  // Configurar combobox de categorías
+  cmbCategoria.Items.Clear;
+  cmbCategoria.Items.Add('QUINCALLERIA');
+  cmbCategoria.Items.Add('FERRETERIA');
+  cmbCategoria.Items.Add('ELECTRICIDAD');
+  cmbCategoria.Items.Add('PLOMERIA');
+  cmbCategoria.ItemIndex := 0;
+
+  // Configurar valores por defecto
+  edtIVA.Text := '16%';
+  edtDivisa1.Text := '1.000';
+  edtGanancia1.Text := '800.00%';
+  edtDivisa2.Text := '9.000';
+
+  // Configurar idioma inicial
+  ConfigurarIdioma;
+end;
+
+procedure TfrmProducto.rgIdiomaClick(Sender: TObject);
+begin
+  ConfigurarIdioma;
+end;
+
+procedure TfrmProducto.ConfigurarIdioma;
+begin
+  if rgIdioma.ItemIndex = 0 then
+    ConfigurarIdiomaEspanol
+  else
+    ConfigurarIdiomaChino;
+end;
+
+procedure TfrmProducto.ConfigurarIdiomaEspanol;
+begin
+  // Configurar textos en español
+  Caption := 'Modificar Producto';
+  rgIdioma.Caption := 'Idioma';
+
+  gbBasico.Caption := 'F1.Básico';
+  lblCodigo.Caption := 'Código';
+  lblDescripcion.Caption := 'Descripción';
+  lblCategoria.Caption := 'Categoría';
+  lblIVA.Caption := 'I.V.A';
+  lblCosto.Caption := 'Costo';
+  lblPrecio.Caption := 'Precio';
+  lblDivisa1.Caption := 'Divisa';
+  lblGanancia1.Caption := 'Ganancia';
+  chkAutomatico1.Caption := 'Automático';
+  chkAutomatico2.Caption := 'Automático';
+
+  gbMayor.Caption := 'F2.Mayor';
+  lblPrecioHeader.Caption := 'Precio';
+  lblPaqueteHeader.Caption := 'Paquete Nota';
+  lblGananciaDivisaHeader.Caption := 'Ganancia/Divisa';
+  lblBulto.Caption := 'Bulto';
+  lblPrecio1.Caption := 'Precio 1';
+  lblPrecio2.Caption := 'Precio 2';
+  lblPrecio3.Caption := 'Precio 3';
+
+  gbComprar.Caption := 'F3.Comprar';
+  lblBultoCompra.Caption := 'Bulto';
+  lblCantCompra.Caption := 'Cant.';
+  lblStock.Caption := 'Stock';
+
+  gbGuarda.Caption := 'F9.Guarda';
+  lblEtiqueta.Caption := 'F8.Etiqueta del Precio';
+  lblStock2.Caption := 'F11.Stock';
+  lblEntregaSolicita.Caption := 'Entrega y Solicita';
+  chkF12Cartas.Caption := 'F12.Cartas';
+  chkSupRom.Caption := 'Sup.Rom';
+
+  btnAceptar.Caption := 'Aceptar';
+  btnCancelar.Caption := 'Cancelar';
+end;
+
+procedure TfrmProducto.ConfigurarIdiomaChino;
+begin
+  // Configurar textos en chino tradicional
+  Caption := '????';
+  rgIdioma.Caption := '??';
+
+  gbBasico.Caption := 'F1.??';
+  lblCodigo.Caption := '??';
+  lblDescripcion.Caption := '??';
+  lblCategoria.Caption := '??';
+  lblIVA.Caption := '???';
+  lblCosto.Caption := '??';
+  lblPrecio.Caption := '??';
+  lblDivisa1.Caption := '??';
+  lblGanancia1.Caption := '??';
+  chkAutomatico1.Caption := '??';
+  chkAutomatico2.Caption := '??';
+
+  gbMayor.Caption := 'F2.??';
+  lblPrecioHeader.Caption := '??';
+  lblPaqueteHeader.Caption := '????';
+  lblGananciaDivisaHeader.Caption := '??/??';
+  lblBulto.Caption := '??';
+  lblPrecio1.Caption := '?? 1';
+  lblPrecio2.Caption := '?? 2';
+  lblPrecio3.Caption := '?? 3';
+
+  gbComprar.Caption := 'F3.??';
+  lblBultoCompra.Caption := '??';
+  lblCantCompra.Caption := '??';
+  lblStock.Caption := '??';
+
+  gbGuarda.Caption := 'F9.??';
+  lblEtiqueta.Caption := 'F8.????';
+  lblStock2.Caption := 'F11.??';
+  lblEntregaSolicita.Caption := '?????';
+  chkF12Cartas.Caption := 'F12.??';
+  chkSupRom.Caption := '??ROM';
+
+  btnAceptar.Caption := '??';
+  btnCancelar.Caption := '??';
+end;
+
+procedure TfrmProducto.chkAutomatico1Click(Sender: TObject);
+begin
+  if chkAutomatico1.Checked then
+    CalcularPrecios;
+end;
+
+procedure TfrmProducto.chkAutomatico2Click(Sender: TObject);
+begin
+  if chkAutomatico2.Checked then
+    CalcularPrecios;
+end;
+
+procedure TfrmProducto.CalcularPrecios;
+var
+  Costo, Ganancia, Precio: Double;
+begin
+  // Calcular precio automáticamente basado en costo y ganancia
+  try
+    if TryStrToFloat(StringReplace(edtCosto.Text, '%', '', [rfReplaceAll]), Costo) and
+       TryStrToFloat(StringReplace(edtGanancia1.Text, '%', '', [rfReplaceAll]), Ganancia) then
+    begin
+      Precio := Costo * (1 + (Ganancia / 100));
+      edtPrecio.Text := FormatFloat('0.00', Precio);
+    end;
+  except
+    // Manejo de errores en caso de valores inválidos
+  end;
+end;
+
+procedure TfrmProducto.btnAceptarClick(Sender: TObject);
+begin
+  // Validaciones básicas
+  if Trim(edtCodigo.Text) = '' then
+  begin
+    ShowMessage('El código es obligatorio');
+    edtCodigo.SetFocus;
+    Exit;
+  end;
+
+  if Trim(edtDescripcion.Text) = '' then
+  begin
+    ShowMessage('La descripción es obligatoria');
+    edtDescripcion.SetFocus;
+    Exit;
+  end;
+
+  // Aquí iría la lógica para guardar los datos
+  ShowMessage('Producto guardado exitosamente');
+  ModalResult := mrOk;
+end;
+
+procedure TfrmProducto.btnCancelarClick(Sender: TObject);
+begin
+  ModalResult := mrCancel;
+end;
+
+end.

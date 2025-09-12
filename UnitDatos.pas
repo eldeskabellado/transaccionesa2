@@ -109,18 +109,6 @@ type
     fieldFacturasFCC_SERIE: TStringField;
     dtmfldFacturasFCC_FECHAPROXIMA: TDateTimeField;
     sqLista: TDBISAMQuery;
-    fieldListaFL_CODIGO: TStringField;
-    fieldListaFI_DESCRIPCION: TStringField;
-    fieldListaFL_LOTE: TStringField;
-    crncyfldListaFL_COSTO: TCurrencyField;
-    crncyfldListaFL_PRECIOSINIMPUESTO: TCurrencyField;
-    crncyfldListaFL_MONTOIMPUESTO1: TCurrencyField;
-    crncyfldListaFL_MONTOIMPUESTO2: TCurrencyField;
-    fieldListaFT_CODIGOPRODUCTO: TStringField;
-    crncyfldListaExistencia: TCurrencyField;
-    crncyfldListaFL_PRECIOIMPORTADO: TCurrencyField;
-    sqListaFL_VENCIMIENTO: TDateField;
-    fieldListaZZCAMPO_001: TStringField;
     sqbuscarProducto: TDBISAMQuery;
     fieldProductoFI_CODIGO: TStringField;
     fieldProductoFI_DESCRIPCION: TStringField;
@@ -187,6 +175,8 @@ type
     field10: TStringField;
     sqCompras: TDBISAMQuery;
     sqVentas: TDBISAMQuery;
+    sqTasa: TDBISAMQuery;
+    sqclientes: TDBISAMQuery;
   private
     { Private declarations }
   public

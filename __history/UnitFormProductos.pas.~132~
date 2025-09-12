@@ -1,0 +1,1576 @@
+﻿unit UnitFormProductos;
+
+interface
+
+uses
+  Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants, System.Classes, Vcl.Graphics,
+  Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.ExtCtrls, Vcl.Buttons, Vcl.StdCtrls,
+  Data.DB, Vcl.Grids, Vcl.DBGrids, dbisamtb, System.UITypes, Vcl.Menus,
+  DBClient, frxClass, frxDBSet;
+
+type
+  TformArticulos = class(TForm)
+    pnl1: TPanel;
+    pnl2: TPanel;
+    btn1: TSpeedButton;
+    btn2: TSpeedButton;
+    btn3: TSpeedButton;
+    pnl3: TPanel;
+    pnl4: TPanel;
+    rgIdioma: TRadioGroup;
+    lblCodigo: TLabel;
+    lblDescripcion: TLabel;
+    lblCategoria: TLabel;
+    lblIva: TLabel;
+    lblCosto: TLabel;
+    lblDivisas: TLabel;
+    lblGanancia: TLabel;
+    lblPrecio: TLabel;
+    lblPrecioDivisas: TLabel;
+    btnPrecios: TSpeedButton;
+    editNombre: TEdit;
+    editCodigo: TEdit;
+    cmb1: TComboBox;
+    editIVA: TEdit;
+    editCosto: TEdit;
+    editDivisas: TEdit;
+    editUtilidad: TEdit;
+    lblPorcentage: TLabel;
+    lblGanancia1: TLabel;
+    editPrecioDivisas: TEdit;
+    editPrecio: TEdit;
+    DBGrid1: TDBGrid;
+    pnl5: TPanel;
+    btnGUARDAR: TSpeedButton;
+    lblCapacidad: TLabel;
+    editCapacidad: TEdit;
+    lblDetalle: TLabel;
+    editDetalle: TEdit;
+    SQBuscarPresentacion: TDBISAMQuery;
+    tProductos: TDBISAMTable;
+    tCostos: TDBISAMTable;
+    SQActualizarProducto: TDBISAMQuery;
+    dsPresentaciones: TDataSource;
+    edtCATEGORIA: TEdit;
+    lblCat: TLabel;
+    grp1: TGroupBox;
+    edtExist1: TEdit;
+    lblCodigo21: TLabel;
+    edtExist: TEdit;
+    lblCodigo2: TLabel;
+    lblCodigo1: TLabel;
+    btn4: TButton;
+    sqUpdate: TDBISAMQuery;
+    sqUpdate1: TDBISAMQuery;
+    RadioButton1: TRadioButton;
+    Edit1: TEdit;
+    tSfixed: TDBISAMTable;
+    dbgrdCODIGOASOCIADO: TDBGrid;
+    lblCodigo3: TLabel;
+    edtCodAsociado: TEdit;
+    btn5: TButton;
+    sqCodAsociado: TDBISAMQuery;
+    dsCodAsociado: TDataSource;
+    tCodAsociado: TDBISAMTable;
+    sqSqCodigo: TDBISAMQuery;
+    btn6: TSpeedButton;
+    frpPresentaciones: TfrxReport;
+    frpInventario: TfrxReport;
+    sqDetEtiquetasPresentaciones: TDBISAMQuery;
+    fsqEtiqueta3: TfrxDBDataset;
+    fsqDetalleEtiqueta2: TfrxDBDataset;
+    sqDetalleetiquetaInventario: TDBISAMQuery;
+    btnEtiqueta: TSpeedButton;
+    sqInventario: TDBISAMQuery;
+    fsqInventario: TfrxDBDataset;
+    fsqPresentacion: TfrxDBDataset;
+    sqPresentacion: TDBISAMQuery;
+    editPrecioDivisasConIva: TEdit;
+    lblPrecioDivisas1: TLabel;
+    btnEliminar: TSpeedButton;
+    procedure rgIdiomaClick(Sender: TObject);
+    procedure FormShow(Sender: TObject);
+    procedure HabilitarControles(Estado: Integer);
+    procedure btn1Click(Sender: TObject);
+    procedure btn3Click(Sender: TObject);
+    procedure btn2Click(Sender: TObject);
+    procedure FormatearEdits;
+    procedure CalcularDesdeCosoBS;
+    procedure CalcularDesdeCostoDivisas;
+    procedure CalcularDesdePrecio;
+    procedure editCostoExit(Sender: TObject);
+    procedure editDivisasExit(Sender: TObject);
+    procedure editPrecioExit(Sender: TObject);
+    procedure editUtilidadExit(Sender: TObject);
+    procedure editIVAExit(Sender: TObject);
+    procedure CalcularUtilidadSolamente;
+    procedure btnPreciosClick(Sender: TObject);
+    procedure editCapacidadExit(Sender: TObject);
+    procedure btnGUARDARClick(Sender: TObject);
+    procedure btn5Click(Sender: TObject);
+    procedure btn6Click(Sender: TObject);
+    procedure DBGrid1DblClick(Sender: TObject);
+    procedure dbgrdCODIGOASOCIADODblClick(Sender: TObject);
+    procedure btnEtiquetaClick(Sender: TObject);
+  private
+    { Private declarations }
+    PrecioAnterior: Currency;
+     procedure EliminarCodigoAsociadoSeleccionado;
+  procedure CrearMenuContextualCodigosAsociados;
+  procedure MenuEliminarCodigoClick(Sender: TObject);
+    // Procedimientos básicos
+    procedure ActualizarGridPresentaciones;
+    procedure CalcularDesdeIVA;
+
+    // Procedimientos de guardado de tablas principales:
+    procedure GuardarProducto;
+    procedure GuardarCostos;
+    procedure GuardarSfixed;
+    procedure GuardarArticuloCompleto;
+    procedure ActualizarProductoSQL;
+    procedure ActualizarCostosSQL;
+
+    // Procedimientos de códigos asociados:
+    procedure AgregarCodigoAsociado;
+    procedure GuardarCodigosAsociados;
+    procedure GuardarCodigoDirecto(codigo: string);
+    function CodigoAsociadoExiste(codigo: string): Boolean;
+    procedure LimpiarArrayCodigos;
+    procedure MostrarCodigosEnArray;
+    function ValidarCodigoAsociado: Boolean;
+    procedure RefrescarGridCodigosAsociados;
+
+    // Procedimientos de validación y utilidad:
+    function ValidarDatosCompletos: Boolean;
+    function VerificarTablas: Boolean;
+
+    // Procedimientos para eliminar presentaciones:
+    procedure EliminarPresentacionSeleccionada;
+    procedure EliminarTodasLasPresentaciones;
+    procedure CrearMenuContextualGrid;
+    procedure MenuEliminarClick(Sender: TObject);
+    procedure MenuEliminarTodasClick(Sender: TObject);
+    procedure ConfigurarQueryEtiquetas;
+    procedure ImprimirEtiquetasProducto(const CodigoProducto: string);
+    procedure ImprimirEtiquetasPresentaciones(const CodigoProducto: string);
+    procedure ImprimirEtiquetasInventario(const CodigoProducto: string);
+    procedure ImprimirEtiquetasDesdeGrid;
+    procedure ImprimirEtiqueta(const CodigoProducto:string);
+
+  public
+    { Public declarations }
+    miIVASeleccionado: Currency;
+    miCostoSeleccionado: Currency;
+    miCostoBs: Currency;
+    miPrecioSeleccionado: Currency;
+    miPrecioBs: Currency;
+    miPrecioDivisasSeleccionado: Currency;
+    CapacidadSeleccionado: Double;
+    miUtilidad: Currency;
+    miFactor: Currency;
+    accion: Integer;
+    miPrecioSinImpuesto: Currency;
+    miPrecioSinImpuestoDivisas: Currency;
+    ArrayCodigosAsociados: array of string;
+    procedure ProcesarEtiquetas(const CodigoProducto: string);
+  end;
+
+var
+  formArticulos: TformArticulos;
+
+implementation
+
+uses
+  UnitBuscarProductos, UnitDatos, UnitVariablesGlobales, UnitPresentacion;
+
+{$R *.dfm}
+
+// ============================================================================
+// PROCEDIMIENTOS BÁSICOS DE CÁLCULO
+// ============================================================================
+procedure TformArticulos.ConfigurarQueryEtiquetas;
+begin
+  // Configurar query para presentaciones (ofertas)
+  sqDetEtiquetasPresentaciones.Close;
+  sqDetEtiquetasPresentaciones.SQL.Clear;
+  sqDetEtiquetasPresentaciones.SQL.Add('SELECT FO_PRODUCTO, FO_DESCRIPCION, FO_UNDDESCARGA,');
+  sqDetEtiquetasPresentaciones.SQL.Add('       (FO_MTOTOTAL / 100) AS FO_PRECIO_CALCULADO');
+  sqDetEtiquetasPresentaciones.SQL.Add('FROM sinvoferta');
+  sqDetEtiquetasPresentaciones.SQL.Add('WHERE FO_VISIBLE = TRUE AND FO_UNDDESCARGA <> 1');
+  sqDetEtiquetasPresentaciones.SQL.Add('  AND FO_PRODUCTO = :CodigoProducto');
+  sqDetEtiquetasPresentaciones.SQL.Add('ORDER BY FO_UNDDESCARGA');
+
+  // Configurar query para inventario
+  sqDetalleetiquetaInventario.Close;
+  sqDetalleetiquetaInventario.SQL.Clear;
+  sqDetalleetiquetaInventario.SQL.Add('SELECT I.FI_CODIGO, I.FI_DESCRIPCION, I.FI_CAPACIDAD,');
+  sqDetalleetiquetaInventario.SQL.Add('       C.FIC_P01PRECIOTOTALEXT');
+  sqDetalleetiquetaInventario.SQL.Add('FROM SINVENTARIO AS I');
+  sqDetalleetiquetaInventario.SQL.Add('INNER JOIN a2InvCostosPrecios AS C ON I.FI_CODIGO = C.FIC_CODEITEM');
+  sqDetalleetiquetaInventario.SQL.Add('WHERE I.FI_STATUS = TRUE AND I.FI_CAPACIDAD <> 1');
+  sqDetalleetiquetaInventario.SQL.Add('  AND I.FI_CODIGO = :CodigoProducto');
+  sqDetalleetiquetaInventario.SQL.Add('ORDER BY I.FI_CAPACIDAD');
+
+  // Configurar datasets para FastReport
+  fsqEtiqueta3.DataSet := sqDetEtiquetasPresentaciones;
+  fsqEtiqueta3.UserName := 'dsPresentaciones';
+
+  fsqDetalleEtiqueta2.DataSet := sqDetalleetiquetaInventario;
+  fsqDetalleEtiqueta2.UserName := 'dsInventario';
+end;
+
+procedure TformArticulos.ProcesarEtiquetas(const CodigoProducto: string);
+var
+  TotalPresentaciones, TotalInventario: Integer;
+  MensajeConfirmacion: string;
+  Respuesta: Integer;
+begin
+  try
+    // Configurar queries
+    ConfigurarQueryEtiquetas;
+
+    // Verificar datos disponibles
+    sqDetEtiquetasPresentaciones.ParamByName('CodigoProducto').AsString := CodigoProducto;
+    sqDetalleetiquetaInventario.ParamByName('CodigoProducto').AsString := CodigoProducto;
+
+    sqDetEtiquetasPresentaciones.Open;
+    sqDetalleetiquetaInventario.Open;
+
+    TotalPresentaciones := sqDetEtiquetasPresentaciones.RecordCount;
+    TotalInventario := sqDetalleetiquetaInventario.RecordCount;
+
+    // Validar si hay datos
+    if (TotalPresentaciones = 0) and (TotalInventario = 0) then
+    begin
+      ShowMessage('No se encontraron etiquetas para imprimir del código: ' + CodigoProducto);
+      Exit;
+    end;
+
+    // Mostrar información y confirmar impresión
+    MensajeConfirmacion := 'Código: ' + CodigoProducto + #13#10 +
+                          'Presentaciones encontradas: ' + IntToStr(TotalPresentaciones) + #13#10 +
+                          'Registros de inventario: ' + IntToStr(TotalInventario) + #13#10#13#10 +
+                          '¿Desea imprimir las etiquetas?';
+
+    Respuesta := Application.MessageBox(PChar(MensajeConfirmacion), 'Confirmar Impresión',
+                                       MB_YESNO + MB_ICONQUESTION);
+
+    if Respuesta = IDYES then
+    begin
+      // Imprimir según disponibilidad de datos
+      if (TotalPresentaciones > 0) and (TotalInventario > 0) then
+      begin
+        // Ambos tipos de datos disponibles - preguntar qué imprimir
+        Respuesta := Application.MessageBox(
+          'Seleccione el tipo de etiquetas a imprimir:' + #13#10 +
+          'SÍ = Solo Presentaciones' + #13#10 +
+          'NO = Solo Inventario' + #13#10 +
+          'CANCELAR = Ambos tipos',
+          'Tipo de Etiquetas',
+          MB_YESNOCANCEL + MB_ICONQUESTION);
+
+        case Respuesta of
+          IDYES: ImprimirEtiquetasPresentaciones(CodigoProducto);    // Presentaciones
+          IDNO: ImprimirEtiquetasInventario(CodigoProducto);         // Inventario
+          IDCANCEL: ImprimirEtiquetasProducto(CodigoProducto);       // Ambos
+        end;
+      end
+      else if TotalPresentaciones > 0 then
+        ImprimirEtiquetasPresentaciones(CodigoProducto)
+      else
+        ImprimirEtiquetasInventario(CodigoProducto);
+    end;
+
+  except
+    on E: Exception do
+    begin
+      ShowMessage('Error al procesar etiquetas: ' + E.Message);
+    end;
+  end;
+
+  // Cerrar queries al final
+  if sqDetEtiquetasPresentaciones.Active then
+    sqDetEtiquetasPresentaciones.Close;
+  if sqDetalleetiquetaInventario.Active then
+    sqDetalleetiquetaInventario.Close;
+end;
+
+procedure TformArticulos.ImprimirEtiquetasProducto(const CodigoProducto: string);
+begin
+//  try
+//    ConfigurarQueryEtiquetas;
+//
+//    // Abrir ambos queries
+//    sqDetEtiquetasPresentaciones.ParamByName('CodigoProducto').AsString := CodigoProducto;
+//    sqDetalleetiquetaInventario.ParamByName('CodigoProducto').AsString := CodigoProducto;
+//
+//    sqDetEtiquetasPresentaciones.Open;
+//    sqDetalleetiquetaInventario.Open;
+//
+//    // Usar repEtiqueta2 para reporte combinado
+//    if FileExists(ExtractFilePath(Application.ExeName) + 'Reports\EtiquetasCombinadas.fr3') then
+//      repEtiqueta2.LoadFromFile(ExtractFilePath(Application.ExeName) + 'Reports\EtiquetasCombinadas.fr3')
+//    else if FileExists('EtiquetasCombinadas.fr3') then
+//      repEtiqueta2.LoadFromFile('EtiquetasCombinadas.fr3')
+//    else
+//    begin
+//      ShowMessage('No se encontró el archivo de reporte: EtiquetasCombinadas.fr3');
+//      Exit;
+//    end;
+//
+//    repEtiqueta2.PrepareReport(True);
+//    repEtiqueta2.ShowReport(True);
+//
+//  except
+//    on E: Exception do
+//    begin
+//      ShowMessage('Error al imprimir etiquetas combinadas: ' + E.Message);
+//    end;
+//  end;
+end;
+procedure TformArticulos.ImprimirEtiquetasPresentaciones(const CodigoProducto: string);
+begin
+//  try
+//    ConfigurarQueryEtiquetas;
+//
+//    // Solo query de presentaciones
+//    sqDetEtiquetasPresentaciones.ParamByName('CodigoProducto').AsString := CodigoProducto;
+//    sqDetEtiquetasPresentaciones.Open;
+//
+//    if sqDetEtiquetasPresentaciones.IsEmpty then
+//    begin
+//      ShowMessage('No se encontraron presentaciones para el código: ' + CodigoProducto);
+//      Exit;
+//    end;
+//
+//    // Usar repEtiqueta3 para presentaciones
+//    if FileExists(ExtractFilePath(Application.ExeName) + 'Reports\EtiquetasPresentaciones.fr3') then
+//      repEtiqueta3.LoadFromFile(ExtractFilePath(Application.ExeName) + 'Reports\EtiquetasPresentaciones.fr3')
+//    else if FileExists('EtiquetasPresentaciones.fr3') then
+//      repEtiqueta3.LoadFromFile('EtiquetasPresentaciones.fr3')
+//    else
+//    begin
+//      ShowMessage('No se encontró el archivo de reporte: EtiquetasPresentaciones.fr3');
+//      Exit;
+//    end;
+//
+//    repEtiqueta3.PrepareReport(True);
+//    repEtiqueta3.ShowReport(True);
+//
+//  except
+//    on E: Exception do
+//    begin
+//      ShowMessage('Error al imprimir etiquetas de presentaciones: ' + E.Message);
+//    end;
+//  end;
+end;
+
+procedure TformArticulos.ImprimirEtiquetasInventario(const CodigoProducto: string);
+begin
+//  try
+//    ConfigurarQueryEtiquetas;
+//
+//    // Solo query de inventario
+//    sqDetalleetiquetaInventario.ParamByName('CodigoProducto').AsString := CodigoProducto;
+//    sqDetalleetiquetaInventario.Open;
+//
+//    if sqDetalleetiquetaInventario.IsEmpty then
+//    begin
+//      ShowMessage('No se encontraron registros de inventario para el código: ' + CodigoProducto);
+//      Exit;
+//    end;
+//
+//    // Usar repEtiqueta2 para inventario
+//    if FileExists(ExtractFilePath(Application.ExeName) + 'Reports\EtiquetasInventario.fr3') then
+//      repEtiqueta2.LoadFromFile(ExtractFilePath(Application.ExeName) + 'Reports\EtiquetasInventario.fr3')
+//    else if FileExists('EtiquetasInventario.fr3') then
+//      repEtiqueta2.LoadFromFile('EtiquetasInventario.fr3')
+//    else
+//    begin
+//      ShowMessage('No se encontró el archivo de reporte: EtiquetasInventario.fr3');
+//      Exit;
+//    end;
+//
+//    repEtiqueta2.PrepareReport(True);
+//    repEtiqueta2.ShowReport(True);
+//
+//  except
+//    on E: Exception do
+//    begin
+//      ShowMessage('Error al imprimir etiquetas de inventario: ' + E.Message);
+//    end;
+//  end;
+end;
+
+
+
+
+
+
+//  Procedimiento para el evento del botón (btnEtiqueta)
+procedure TformArticulos.btnEtiquetaClick(Sender: TObject);
+var
+  CodigoActual: string;
+begin
+  // Obtener código actual del producto desde el edit
+  CodigoActual := Trim(editCodigo.Text);
+
+  if CodigoActual = '' then
+  begin
+    ShowMessage('Debe ingresar un código de producto válido');
+    editCodigo.SetFocus;
+    Exit;
+  end;
+
+  // Llamar al procedimiento principa
+  ImprimirEtiqueta(codigoActual);
+end;
+
+// Método alternativo para llamar desde e
+procedure TformArticulos.ImprimirEtiqueta(const CodigoProducto: string);
+var
+  SQLText: string;
+  SQLTextInventario: string;
+  tasastr: string;
+begin
+  // Ubicamos la unidad detallada - CORREGIDO: Agregada condición por código
+  SQLTextInventario := 'SELECT I.FI_CODIGO, I.FI_DESCRIPCION, I.FI_STATUS, ' +
+                       'I.FI_UNIDAD, I.FI_CAPACIDAD, C.FIC_P01PRECIOTOTALEXT ' +
+                       'FROM SINVENTARIO AS I ' +
+                       'INNER JOIN a2InvCostosPrecios AS C ON I.FI_CODIGO = C.FIC_CODEITEM ' +
+                       'WHERE I.FI_STATUS = TRUE AND I.FI_CAPACIDAD = 1 ' +
+                       'AND I.FI_CODIGO = ' + QuotedStr(CodigoProducto);
+
+  with sqInventario do
+  begin
+    Close;
+    SQL.Clear;
+    SQL.Add(SQLTextInventario);
+    Open;
+  end;
+
+  with sqPresentacion do
+  begin
+    SQL.Clear;
+    TasaStr := StringReplace(FloatToStr(miFactor), ',', '.', [rfReplaceAll]);
+    SQLText := 'SELECT FO_PRODUCTO, FO_DESCRIPCION, FO_UNDDESCARGA, ' +
+               '(FO_MTOTOTAL /'+tasastr+') AS FO_MTOTOTAL ' +
+               'FROM sinvoferta ' +
+               'WHERE FO_VISIBLE = TRUE AND FO_UNDDESCARGA = 1 ' +
+               'AND FO_PRODUCTO = ' + QuotedStr(CodigoProducto) +
+               ' ORDER BY FO_UNDDESCARGA';
+    SQL.Add(SQLText);
+    Open;
+  end;
+
+  // Consulta para etiquetas de inventario con capacidad <> 1
+  with sqDetalleetiquetaInventario do
+  begin
+    Close;
+    SQL.Clear;
+SQLTextInventario := 'SELECT I.FI_CODIGO, I.FI_DESCRIPCION, I.FI_STATUS, ' +
+                     'I.FI_UNIDAD, I.FI_CAPACIDAD, ' +
+                     '(C.FIC_P01PRECIOTOTALEXT * 1.16) AS FIC_P01PRECIOTOTALEXT ' +
+                     'FROM SINVENTARIO AS I ' +
+                     'INNER JOIN a2InvCostosPrecios AS C ON I.FI_CODIGO = C.FIC_CODEITEM ' +
+                     'WHERE I.FI_STATUS = TRUE AND I.FI_CAPACIDAD <> 1 ' +
+                     'AND I.FI_CODIGO = ' + QuotedStr(CodigoProducto);
+    SQL.Add(SQLTextInventario);
+    Open;
+  end;
+
+  // Consulta para etiquetas de presentaciones con FO_UNDDESCARGA <> 1
+  with sqDetEtiquetasPresentaciones do
+  begin
+    Close;
+    SQL.Clear;
+    SQLText := 'SELECT FO_PRODUCTO, FO_DESCRIPCION, FO_UNDDESCARGA, ' +
+               '(FO_MTOTOTAL / 110.56) AS FO_MTOTOTAL ' +
+               'FROM sinvoferta ' +
+               'WHERE FO_VISIBLE = TRUE AND FO_UNDDESCARGA <> 1 ' +
+               'AND FO_PRODUCTO = ' + QuotedStr(CodigoProducto) +
+               ' ORDER BY FO_UNDDESCARGA';
+    SQL.Add(SQLText);
+    Open;
+  end;
+
+  // Lógica para mostrar el reporte correspondiente
+  if sqInventario.RecordCount > 0 then
+  begin
+    // Mostrar reporte de inventario
+   // ShowMessage('Desde Productos');
+    frpInventario.ShowReport;
+  end
+  else if sqPresentacion.RecordCount > 0 then
+  begin
+    // Mostrar reporte de presentaciones
+   //  ShowMessage('Desde {ProductosPresentaciones');
+    frpPresentaciones.ShowReport;
+  end;
+end;
+
+procedure TformArticulos.ImprimirEtiquetasDesdeGrid;
+var
+  CodigoSeleccionado: string;
+begin
+  if not DBGrid1.DataSource.DataSet.Active then
+  begin
+    ShowMessage('No hay datos activos en el grid');
+    Exit;
+  end;
+
+  if DBGrid1.DataSource.DataSet.IsEmpty then
+  begin
+    ShowMessage('No hay registros seleccionados');
+    Exit;
+  end;
+
+  // Obtener código del grid actual (ajustar el nombre del campo según tu tabla)
+  try
+    CodigoSeleccionado := DBGrid1.DataSource.DataSet.FieldByName('CODIGO').AsString;
+    if CodigoSeleccionado = '' then
+      CodigoSeleccionado := DBGrid1.DataSource.DataSet.FieldByName('FI_CODIGO').AsString;
+  except
+    ShowMessage('No se pudo obtener el código del registro seleccionado');
+    Exit;
+  end;
+
+  if CodigoSeleccionado <> '' then
+    ProcesarEtiquetas(CodigoSeleccionado)
+  else
+    ShowMessage('El código seleccionado está vacío');
+end;
+
+// Método alternativo para llamar desde código
+
+
+
+procedure TformArticulos.CalcularDesdeCosoBS;
+begin
+  if miUtilidad = 0 then
+    miPrecioSeleccionado := miCostoSeleccionado
+  else
+    miPrecioSeleccionado := miCostoSeleccionado * (1 + (miUtilidad / 100));
+
+  miPrecioDivisasSeleccionado := miPrecioSeleccionado / miFactor;
+  FormatearEdits;
+end;
+
+procedure TformArticulos.CalcularDesdeIVA;
+begin
+  miPrecioSinImpuesto := miPrecioSeleccionado / (1 + (miIVASeleccionado / 100));
+  miPrecioSinImpuestoDivisas := miPrecioSinImpuesto / miFactor;
+  FormatearEdits;
+end;
+
+procedure TformArticulos.CalcularDesdeCostoDivisas;
+var
+  costoDivisas: Currency;
+begin
+  costoDivisas := StrToFloatDef(StringReplace(editDivisas.Text, ',', '', [rfReplaceAll]), 0);
+  miCostoSeleccionado := costoDivisas * miFactor;
+  miPrecioSeleccionado := miCostoSeleccionado * (1 + (miUtilidad / 100));
+  miPrecioDivisasSeleccionado := miPrecioSeleccionado / miFactor;
+  FormatearEdits;
+end;
+
+procedure TformArticulos.CalcularDesdePrecio;
+begin
+  if miCostoSeleccionado > 0 then
+    miUtilidad := ((miPrecioSeleccionado - miCostoSeleccionado) / miCostoSeleccionado) * 100
+  else
+    miUtilidad := 0;
+  miPrecioDivisasSeleccionado := miPrecioSeleccionado / miFactor;
+  FormatearEdits;
+end;
+
+procedure TformArticulos.CalcularUtilidadSolamente;
+begin
+  if miUtilidad = 0 then
+    miPrecioSeleccionado := miCostoBs
+  else
+    miPrecioSeleccionado := miCostoBs * (1 + (miUtilidad / 100));
+  miPrecioDivisasSeleccionado := miPrecioSeleccionado / miFactor;
+  FormatearEdits;
+end;
+
+procedure TformArticulos.FormatearEdits;
+begin
+  editCosto.Text := FormatFloat('#,##0.00', miCostoBs);
+  editPrecio.Text := FormatFloat('#,##0.00', miPrecioSeleccionado * 1.16);
+  editIVA.Text := FormatFloat('#,##0.00', miIVASeleccionado);
+  editDivisas.Text := FormatFloat('#,##0.0000', miCostoSeleccionado);
+  editPrecioDivisas.Text := FormatFloat('#,##0.0000', miPrecioDivisasSeleccionado);
+  editUtilidad.Text := FormatFloat('#,##0.00', miUtilidad) + '%';
+  miPrecioSinImpuesto := miPrecioSeleccionado / (1 + (miIVASeleccionado / 100));
+  miPrecioSinImpuestoDivisas := miPrecioSinImpuesto / miFactor;
+  editPrecioDivisasConIva.Text:=FormatFloat('#,##0.0000', miPrecioDivisasSeleccionado *1.16);
+end;
+
+// ============================================================================
+// EVENTOS DE FORMULARIO
+// ============================================================================
+
+procedure TformArticulos.FormShow(Sender: TObject);
+begin
+  btn1.caption := 'Nuevo';
+  btn2.Caption := 'Modificar';
+  btn3.Caption := 'Cancelar';
+  btnGUARDAR.Caption := 'Guardar';
+  btnPrecios.Caption := 'Agregar Precios de Presentaciones';
+  rgIdioma.Caption := '語言';
+
+  lblCodigo.Caption := 'Código:';
+  lblDescripcion.Caption := 'Descripción:';
+  lblCategoria.Caption := 'Categoría:';
+  lblIva.Caption := 'IVA:';
+  lblCosto.Caption := 'Costo:';
+  lblDivisas.Caption := 'Divisas:';
+  lblGanancia.Caption := 'Ganancia:';
+  lblPrecio.Caption := 'Precio:';
+  lblPrecioDivisas.Caption := 'Precio $:';
+  lblDetalle.Caption := 'Detalle';
+  lblCat.Caption := 'Observacion';
+  cmb1.Text := 'PLASTICO';
+
+  accion := 0;
+  HabilitarControles(accion);
+
+  miIVASeleccionado := 16;
+  Caption:='La tasa del Dia es '+ CurrToStr(miFactor);
+  dsCodAsociado.DataSet := sqCodAsociado;
+  dbgrdCODIGOASOCIADO.DataSource := dsCodAsociado;
+  dsPresentaciones.DataSet := SQBuscarPresentacion;
+  DBGrid1.DataSource := dsPresentaciones;
+
+  // Crear menú contextual para el grid
+  CrearMenuContextualGrid;
+  CrearMenuContextualGrid;
+  CrearMenuContextualCodigosAsociados; // <
+end;
+
+procedure TformArticulos.HabilitarControles(Estado: Integer);
+begin
+  case Estado of
+    0: begin
+      editCodigo.Clear; editCodigo.Enabled := False;
+      editNombre.Clear; editNombre.Enabled := False;
+      cmb1.Text := ''; cmb1.Enabled := False;
+      editIVA.Clear; editIVA.Enabled := False;
+      editCosto.Clear; editCosto.Enabled := False;
+      editDivisas.Clear; editDivisas.Enabled := False;
+      editUtilidad.Clear; editUtilidad.Enabled := False;
+      editPrecio.Clear; editPrecio.Enabled := False;
+      editPrecioDivisas.Clear; editPrecioDivisas.Enabled := False;
+      editDetalle.Clear; editDetalle.Enabled := False;
+      btnGUARDAR.Enabled := False;
+      editCapacidad.Text := '1'; editCapacidad.Enabled := False;
+      edtCATEGORIA.Clear; edtCATEGORIA.Enabled := False;
+    end;
+    1, 2: begin
+      editCodigo.Enabled := True; editNombre.Enabled := True;
+      cmb1.Enabled := True; editIVA.Enabled := True;
+      editCosto.Enabled := True; editDivisas.Enabled := True;
+      editUtilidad.Enabled := True; editPrecio.Enabled := True;
+      editPrecioDivisas.Enabled := True; editDetalle.Enabled := True;
+      btnGUARDAR.Enabled := True; editCapacidad.Text := '1';
+      editCapacidad.Enabled := True; edtCATEGORIA.Enabled := True;
+      if Estado = 1 then editCodigo.SetFocus;
+    end;
+  end;
+end;
+
+// ============================================================================
+// EVENTOS DE BOTONES
+// ============================================================================
+
+procedure TformArticulos.btn1Click(Sender: TObject);
+begin
+  accion := 1;
+  btn2.Enabled := False;
+  LimpiarArrayCodigos;
+  HabilitarControles(accion);
+  editIVA.Text := FloatToStr(miIVASeleccionado);
+  SQBuscarPresentacion.Close;
+
+  if Assigned(edtCodAsociado) then edtCodAsociado.Clear;
+  if sqCodAsociado.Active then sqCodAsociado.Close;
+
+  Self.Caption := 'Artículos - NUEVO (códigos se guardan al final)';
+  cmb1.Text := 'PLASTICO';
+end;
+
+procedure TformArticulos.btn3Click(Sender: TObject);
+begin
+  if (accion = 1) and (Length(ArrayCodigosAsociados) > 0) then
+  begin
+    if MessageDlg('Hay ' + IntToStr(Length(ArrayCodigosAsociados)) +
+                  ' códigos asociados sin guardar. ¿Está seguro que desea cancelar?',
+                  mtConfirmation, [mbYes, mbNo], 0) = mrNo then
+      Exit;
+  end;
+
+  LimpiarArrayCodigos;
+  accion := 0;
+  btn1.Enabled := True;
+  btn2.Enabled := True;
+  HabilitarControles(accion);
+  SQBuscarPresentacion.Close;
+
+  if Assigned(edtCodAsociado) then edtCodAsociado.Clear;
+  if sqCodAsociado.Active then sqCodAsociado.Close;
+
+  Self.Caption := 'Artículos';
+end;
+
+procedure TformArticulos.btn2Click(Sender: TObject);
+var
+  formBuscar: TformBuscarArticulo;
+begin
+  btn1.Enabled := False;
+  editIVA.Text := FloatToStr(miIVASeleccionado);
+  LimpiarArrayCodigos;
+
+  formBuscar := TformBuscarArticulo.Create(Self);
+  try
+    if formBuscar.ShowModal = mrOk then
+    begin
+      accion := 2;
+      HabilitarControles(accion);
+      editCodigo.Text := formBuscar.CodigoSeleccionado;
+      editNombre.Text := formBuscar.NombreSeleccionado;
+      editDivisas.Text := FloatToStr(formBuscar.DivisasSeleccionado);
+      editUtilidad.Text := FloatToStr(formBuscar.UtilidadSeleccionado);
+      editDetalle.Text := formBuscar.DetalleSeleccionado;
+
+      // Actualizar grid de presentaciones
+      ActualizarGridPresentaciones;
+
+      // Llenar variables
+      miCostoSeleccionado := formBuscar.CostoSeleccionado;
+      miCostoBs := miCostoSeleccionado * miFactor;
+      miPrecioDivisasSeleccionado := formBuscar.PrecioDivisasSeleccionado;
+      miPrecioBs := miPrecioDivisasSeleccionado * miFactor;
+      miUtilidad := formBuscar.UtilidadSeleccionado;
+      CapacidadSeleccionado := formBuscar.CapacidadSeleccionado;
+
+      editIVA.Text := FloatToStr(miIVASeleccionado);
+      editDivisas.Text := FloatToStr(miCostoSeleccionado);
+      editCosto.Text := FloatToStr(miCostoBs);
+      editPrecio.Text := FloatToStr(miPrecioBs);
+      editPrecioDivisas.Text := FloatToStr(miPrecioDivisasSeleccionado);
+      editUtilidad.Text := FloatToStr(miUtilidad);
+      editCapacidad.Text := FloatToStr(CapacidadSeleccionado);
+      edtCATEGORIA.Text := formBuscar.obsertvaciones;
+      cmb1.Text := 'PLASTICO';
+
+      editCodigo.Enabled := False;
+      if Assigned(edtCodAsociado) then edtCodAsociado.Clear;
+      RefrescarGridCodigosAsociados;
+      Self.Caption := 'Artículos - MODIFICAR';
+      btnEtiqueta.Visible:=True;
+      FormatearEdits;
+    end;
+  finally
+    formBuscar.Free;
+  end;
+end;
+
+procedure TformArticulos.btn5Click(Sender: TObject);
+begin
+  try
+    if accion = 0 then
+    begin
+      ShowMessage('Debe estar en modo Nuevo o Modificar para agregar códigos asociados.');
+      Exit;
+    end;
+
+    if not ValidarCodigoAsociado then Exit;
+
+    case accion of
+      1: AgregarCodigoAsociado;
+      2: GuardarCodigoDirecto(edtCodAsociado.Text);
+    end;
+  except
+    on E: Exception do
+      ShowMessage('Error agregando código asociado: ' + E.Message);
+  end;
+end;
+
+procedure TformArticulos.btn6Click(Sender: TObject);
+begin
+  ShowMessage('Funcionalidad en desarrollo');
+end;
+
+procedure TformArticulos.btnGUARDARClick(Sender: TObject);
+begin
+  if accion = 0 then
+  begin
+    ShowMessage('No hay datos para guardar. Use Nuevo o Modificar primero.');
+    Exit;
+  end;
+  GuardarArticuloCompleto;
+  btn1Click(self);
+end;
+
+procedure TformArticulos.btnPreciosClick(Sender: TObject);
+var
+  formPres: TformPresentaciones;
+begin
+  if Trim(editCodigo.Text) = '' then
+  begin
+    ShowMessage('Debe seleccionar un producto primero.');
+    Exit;
+  end;
+
+  formPres := TformPresentaciones.Create(Self);
+  try
+    formPres.accion := 1;
+    formPres.codigoPadre := editCodigo.Text;
+    formPres.nombrepadre := editNombre.Text;
+    formPres.miFactor := Self.miFactor;
+    formPres.capacidadBulto := CapacidadSeleccionado;
+    formPres.costoBulto := miCostoSeleccionado;
+
+    if formPres.ShowModal = mrOk then
+      ActualizarGridPresentaciones;
+  finally
+    formPres.Free;
+  end;
+end;
+
+// ============================================================================
+// EVENTOS DE GRIDS
+// ============================================================================
+
+procedure TformArticulos.DBGrid1DblClick(Sender: TObject);
+begin
+  if SQBuscarPresentacion.IsEmpty then
+  begin
+    ShowMessage('No hay presentaciones para eliminar.');
+    Exit;
+  end;
+  EliminarPresentacionSeleccionada;
+end;
+
+// ============================================================================
+// EVENTOS DE EDITS
+// ============================================================================
+
+procedure TformArticulos.editCapacidadExit(Sender: TObject);
+begin
+  CapacidadSeleccionado := StrToFloatDef(editCapacidad.Text, 1);
+end;
+
+procedure TformArticulos.editCostoExit(Sender: TObject);
+var
+  valor: string;
+begin
+  valor := StringReplace(editCosto.Text, FormatSettings.ThousandSeparator, '', [rfReplaceAll]);
+  miCostoBs := StrToFloatDef(valor, 0);
+  miCostoSeleccionado := miCostoBs / miFactor;
+
+  if miUtilidad = 0 then
+    miPrecioSeleccionado := miCostoBs
+  else
+    miPrecioSeleccionado := miCostoBs * (1 + (miUtilidad / 100));
+
+  miPrecioDivisasSeleccionado := miPrecioSeleccionado / miFactor;
+  FormatearEdits;
+end;
+
+procedure TformArticulos.editDivisasExit(Sender: TObject);
+var
+  costoDivisas: Currency;
+  valor: string;
+begin
+  valor := StringReplace(editDivisas.Text, FormatSettings.ThousandSeparator, '', [rfReplaceAll]);
+  costoDivisas := StrToFloatDef(valor, 0);
+  miCostoSeleccionado := costoDivisas;
+  miCostoBs := miCostoSeleccionado * miFactor;
+
+  if miUtilidad = 0 then
+    miPrecioSeleccionado := miCostoBs
+  else
+    miPrecioSeleccionado := miCostoBs * (1 + (miUtilidad / 100));
+
+  miPrecioDivisasSeleccionado := miPrecioSeleccionado / miFactor;
+  FormatearEdits;
+end;
+
+procedure TformArticulos.editPrecioExit(Sender: TObject);
+var
+  valor: string;
+begin
+  valor := StringReplace(editPrecio.Text, FormatSettings.ThousandSeparator, '', [rfReplaceAll]);
+  miPrecioSeleccionado := StrToFloatDef(valor, 0);
+  miPrecioDivisasSeleccionado := miPrecioSeleccionado / miFactor;
+
+  if miCostoBs > 0 then
+    miUtilidad := ((miPrecioSeleccionado - miCostoBs) / miCostoBs) * 100
+  else
+    miUtilidad := 0;
+
+  FormatearEdits;
+end;
+
+procedure TformArticulos.editUtilidadExit(Sender: TObject);
+var
+  valor: string;
+begin
+  valor := editUtilidad.Text;
+  valor := StringReplace(valor, '%', '', [rfReplaceAll]);
+  valor := StringReplace(valor, FormatSettings.ThousandSeparator, '', [rfReplaceAll]);
+  valor := Trim(valor);
+
+  if valor = '' then
+    miUtilidad := 0
+  else
+    miUtilidad := StrToFloatDef(valor, 0);
+
+  CalcularUtilidadSolamente;
+end;
+
+procedure TformArticulos.editIVAExit(Sender: TObject);
+var
+  valor: string;
+begin
+  valor := StringReplace(editIVA.Text, ',', '', [rfReplaceAll]);
+  miIVASeleccionado := StrToFloatDef(valor, 0);
+end;
+
+// ============================================================================
+// PROCEDIMIENTOS DE PRESENTACIONES
+// ============================================================================
+
+
+
+procedure TformArticulos.ActualizarGridPresentaciones;
+var
+FactorStr : string;
+begin
+  if SQBuscarPresentacion.Active then
+    SQBuscarPresentacion.Close;
+ FactorStr := StringReplace(FloatToStr(miFactor), ',', '.', [rfReplaceAll]);
+ SQBuscarPresentacion.SQL.Text :=
+    'SELECT FO_CODE, FO_PRODUCTO, FO_DESCRIPCION, FO_PRECIODESC, ' +
+    'FO_MTOIMPUESTO1, (FO_MTOTOTAL / ' + FactorStr + ') AS FO_MTOTOTAL, ' +
+    'FO_UNDDESCARGA, FO_SOURCEIMP1, FO_VISIBLE ' +
+    'FROM SinvOferta ' +
+    'WHERE FO_PRODUCTO = :codigo AND FO_VISIBLE = TRUE';
+
+  SQBuscarPresentacion.ParamByName('codigo').AsString := editCodigo.Text;
+
+  try
+    SQBuscarPresentacion.Open;
+    if SQBuscarPresentacion.FindField('FO_UNDDESCARGA') <> nil then
+    begin
+      TFloatField(SQBuscarPresentacion.FieldByName('FO_UNDDESCARGA')).DisplayFormat := '#,##0.00';
+      TFloatField(SQBuscarPresentacion.FieldByName('FO_UNDDESCARGA')).Currency := False;
+    end;
+  except
+    on E: Exception do
+      ShowMessage('Error actualizando presentaciones: ' + E.Message);
+  end;
+end;
+
+// REEMPLAZAR EL PROCEDIMIENTO EliminarPresentacionSeleccionada CON ESTA VERSIÓN:
+// (Usando la misma sintaxis que funciona en EliminarTodasLasPresentaciones)
+
+// REEMPLAZAR EL PROCEDIMIENTO EliminarPresentacionSeleccionada CON ESTA VERSIÓN:
+// FO_CODE es NUMÉRICO, no usar QuotedStr()
+
+procedure TformArticulos.EliminarPresentacionSeleccionada;
+var
+  codigoPresentacion, descripcionPresentacion: string;
+  precioPresentacion: Currency;
+  sqEliminar: TDBISAMQuery;
+begin
+  try
+    if SQBuscarPresentacion.IsEmpty then
+    begin
+      ShowMessage('No hay presentación seleccionada para eliminar.');
+      Exit;
+    end;
+
+    codigoPresentacion := SQBuscarPresentacion.FieldByName('FO_CODE').AsString;
+    descripcionPresentacion := SQBuscarPresentacion.FieldByName('FO_DESCRIPCION').AsString;
+
+    if SQBuscarPresentacion.FindField('FO_MTOTOTAL') <> nil then
+      precioPresentacion := SQBuscarPresentacion.FieldByName('FO_MTOTOTAL').AsCurrency
+    else
+      precioPresentacion := 0;
+
+    if MessageDlg(
+      'ELIMINAR PRESENTACIÓN' + sLineBreak + sLineBreak +
+      'Código: ' + codigoPresentacion + sLineBreak +
+      'Descripción: ' + descripcionPresentacion + sLineBreak +
+      'Precio: ' + FormatFloat('#,##0.00', precioPresentacion) + sLineBreak + sLineBreak +
+      '¿Está seguro que desea eliminar esta presentación?',
+      mtConfirmation, [mbYes, mbNo], 0) = mrNo then
+      Exit;
+
+    sqEliminar := TDBISAMQuery.Create(Self);
+    try
+      sqEliminar.DatabaseName := SQBuscarPresentacion.DatabaseName;
+
+      // FO_CODE ES NUMÉRICO - NO USAR QuotedStr()
+      sqEliminar.SQL.Text := 'DELETE FROM SinvOferta WHERE FO_CODE = ' + codigoPresentacion;
+      sqEliminar.ExecSQL;
+
+      if sqEliminar.RowsAffected > 0 then
+      begin
+        ShowMessage('Presentación eliminada exitosamente: ' + codigoPresentacion);
+        ActualizarGridPresentaciones;
+      end
+      else
+        ShowMessage('No se pudo eliminar la presentación.');
+    finally
+      sqEliminar.Free;
+    end;
+  except
+    on E: Exception do
+      ShowMessage('Error eliminando presentación: ' + E.Message);
+  end;
+end;
+
+procedure TformArticulos.EliminarTodasLasPresentaciones;
+var
+  sqEliminar: TDBISAMQuery;
+begin
+  try
+    if Trim(editCodigo.Text) = '' then
+    begin
+      ShowMessage('Debe seleccionar un producto primero.');
+      Exit;
+    end;
+
+    if MessageDlg(
+      'ELIMINAR TODAS LAS PRESENTACIONES' + sLineBreak + sLineBreak +
+      'Producto: ' + editCodigo.Text + ' - ' + editNombre.Text + sLineBreak + sLineBreak +
+      '¿Está seguro que desea eliminar TODAS las presentaciones?',
+      mtWarning, [mbYes, mbNo], 0) = mrNo then
+      Exit;
+
+    sqEliminar := TDBISAMQuery.Create(Self);
+    try
+      sqEliminar.DatabaseName := SQBuscarPresentacion.DatabaseName;
+
+      // USAR ELIMINACIÓN FÍSICA DIRECTA
+      sqEliminar.SQL.Text := 'DELETE FROM SinvOferta WHERE FO_PRODUCTO = ' + QuotedStr(editCodigo.Text);
+      sqEliminar.ExecSQL;
+
+      ShowMessage('Eliminadas ' + IntToStr(sqEliminar.RowsAffected) + ' presentaciones del producto: ' + editCodigo.Text);
+      ActualizarGridPresentaciones;
+    finally
+      sqEliminar.Free;
+    end;
+  except
+    on E: Exception do
+      ShowMessage('Error eliminando presentaciones: ' + E.Message);
+  end;
+end;
+
+procedure TformArticulos.CrearMenuContextualGrid;
+var
+  popupMenu: TPopupMenu;
+  menuEliminar, menuSeparador, menuEliminarTodas: TMenuItem;
+begin
+  popupMenu := TPopupMenu.Create(Self);
+
+  menuEliminar := TMenuItem.Create(popupMenu);
+  menuEliminar.Caption := 'Eliminar Presentación Seleccionada';
+  menuEliminar.OnClick := MenuEliminarClick;
+  popupMenu.Items.Add(menuEliminar);
+
+  menuSeparador := TMenuItem.Create(popupMenu);
+  menuSeparador.Caption := '-';
+  popupMenu.Items.Add(menuSeparador);
+
+  menuEliminarTodas := TMenuItem.Create(popupMenu);
+  menuEliminarTodas.Caption := 'Eliminar TODAS las Presentaciones';
+  menuEliminarTodas.OnClick := MenuEliminarTodasClick;
+  popupMenu.Items.Add(menuEliminarTodas);
+
+  DBGrid1.PopupMenu := popupMenu;
+end;
+
+procedure TformArticulos.dbgrdCODIGOASOCIADODblClick(Sender: TObject);
+begin
+  if accion <> 2 then
+  begin
+    ShowMessage('Solo se pueden eliminar códigos asociados en modo MODIFICAR.');
+    Exit;
+  end;
+
+  if sqCodAsociado.IsEmpty then
+  begin
+    ShowMessage('No hay códigos asociados para eliminar.');
+    Exit;
+  end;
+
+  EliminarCodigoAsociadoSeleccionado;
+end;
+procedure TformArticulos.EliminarCodigoAsociadoSeleccionado;
+var
+  codigoAsociado, productoAsociado: string;
+  sqEliminar: TDBISAMQuery;
+begin
+  try
+    if sqCodAsociado.IsEmpty then
+    begin
+      ShowMessage('No hay código asociado seleccionado para eliminar.');
+      Exit;
+    end;
+
+    // Solo permitir en modo MODIFICAR
+    if accion <> 2 then
+    begin
+      ShowMessage('Solo se pueden eliminar códigos asociados en modo MODIFICAR.');
+      Exit;
+    end;
+
+    codigoAsociado := sqCodAsociado.FieldByName('FBARRA_CODE').AsString;
+    productoAsociado := sqCodAsociado.FieldByName('FBARRA_PRODUCTO').AsString;
+
+    // Validar que el código no sea igual al código del producto principal
+    if codigoAsociado = editCodigo.Text then
+    begin
+      if MessageDlg(
+        'ATENCIÓN: Está intentando eliminar el código principal del producto.' + sLineBreak +
+        'Código: ' + codigoAsociado + sLineBreak + sLineBreak +
+        '¿Está seguro que desea continuar?',
+        mtWarning, [mbYes, mbNo], 0) = mrNo then
+        Exit;
+    end;
+
+    if MessageDlg(
+      'ELIMINAR CÓDIGO ASOCIADO' + sLineBreak + sLineBreak +
+      'Código: ' + codigoAsociado + sLineBreak +
+      'Producto: ' + productoAsociado + sLineBreak + sLineBreak +
+      '¿Está seguro que desea eliminar este código asociado?',
+      mtConfirmation, [mbYes, mbNo], 0) = mrNo then
+      Exit;
+
+    sqEliminar := TDBISAMQuery.Create(Self);
+    try
+      sqEliminar.DatabaseName := sqCodAsociado.DatabaseName;
+
+      // Eliminar el código asociado específico
+      sqEliminar.SQL.Text :=
+        'DELETE FROM sCodeBar WHERE FBARRA_CODE = ' + QuotedStr(codigoAsociado) +
+        ' AND FBARRA_PRODUCTO = ' + QuotedStr(productoAsociado);
+
+      sqEliminar.ExecSQL;
+
+      if sqEliminar.RowsAffected > 0 then
+      begin
+        ShowMessage('Código asociado eliminado exitosamente: ' + codigoAsociado);
+        RefrescarGridCodigosAsociados;
+      end
+      else
+        ShowMessage('No se pudo eliminar el código asociado.');
+    finally
+      sqEliminar.Free;
+    end;
+  except
+    on E: Exception do
+      ShowMessage('Error eliminando código asociado: ' + E.Message);
+  end;
+end;
+procedure TformArticulos.CrearMenuContextualCodigosAsociados;
+var
+  popupMenu: TPopupMenu;
+  menuEliminar: TMenuItem;
+begin
+  popupMenu := TPopupMenu.Create(Self);
+
+  menuEliminar := TMenuItem.Create(popupMenu);
+  menuEliminar.Caption := 'Eliminar Código Asociado';
+  menuEliminar.OnClick := MenuEliminarCodigoClick;
+  popupMenu.Items.Add(menuEliminar);
+
+  dbgrdCODIGOASOCIADO.PopupMenu := popupMenu;
+end;
+
+// EVENTO PARA EL MENÚ CONTEXTUAL:
+procedure TformArticulos.MenuEliminarCodigoClick(Sender: TObject);
+begin
+  EliminarCodigoAsociadoSeleccionado;
+end;
+
+procedure TformArticulos.MenuEliminarClick(Sender: TObject);
+begin
+  EliminarPresentacionSeleccionada;
+end;
+
+procedure TformArticulos.MenuEliminarTodasClick(Sender: TObject);
+begin
+  EliminarTodasLasPresentaciones;
+end;
+
+// ============================================================================
+// IDIOMA
+// ============================================================================
+
+procedure TformArticulos.rgIdiomaClick(Sender: TObject);
+begin
+  case rgIdioma.ItemIndex of
+    0: begin
+      btn1.Caption := '新增'; btn2.Caption := '修改'; btn3.Caption := '取消';
+      btnPrecios.Caption := '添加演示价格'; btnGUARDAR.Caption := '保持';
+      rgIdioma.Caption := 'Idioma';
+      lblCodigo.Caption := '代碼'; lblDescripcion.Caption := '描述';
+      lblCategoria.Caption := '類別'; lblIva.Caption := '稅率';
+      lblCosto.Caption := '成本'; lblDivisas.Caption := '外幣';
+      lblGanancia.Caption := '利潤'; lblPrecio.Caption := '價格';
+      lblPrecioDivisas.Caption := '外幣價格'; lblCapacidad.Caption := '包装容量';
+      lblDetalle.Caption := '细节'; lblCat.Caption := '观察';
+    end;
+    1: begin
+      btn1.Caption := 'Nuevo'; btn2.Caption := 'Modificar'; btn3.Caption := 'Cancelar';
+      btnGUARDAR.Caption := 'Guardar'; btnPrecios.Caption := 'Agregar Precios de Presentaciones';
+      rgIdioma.Caption := '語言';
+      lblCodigo.Caption := 'Código:'; lblDescripcion.Caption := 'Descripción:';
+      lblCategoria.Caption := 'Categoría:'; lblIva.Caption := 'IVA:';
+      lblCosto.Caption := 'Costo:'; lblDivisas.Caption := 'Divisas:';
+      lblGanancia.Caption := 'Ganancia:'; lblPrecio.Caption := 'Precio:';
+      lblPrecioDivisas.Caption := 'Precio $:'; lblCapacidad.Caption := 'Capacidad del Bulto:';
+      lblDetalle.Caption := 'Detalle'; lblCat.Caption := 'Observacion';
+    end;
+  end;
+end;
+
+// ============================================================================
+// PROCEDIMIENTOS DE GUARDADO
+// ============================================================================
+
+procedure TformArticulos.GuardarProducto;
+begin
+  try
+    if not tProductos.Active then tProductos.Open;
+
+    if tProductos.Locate('FI_CODIGO', editCodigo.Text, []) then
+      tProductos.Edit
+    else
+      tProductos.Append;
+
+    tProductos.FieldByName('FI_CODIGO').AsString := editCodigo.Text;
+    tProductos.FieldByName('FI_DESCRIPCION').AsString := editNombre.Text;
+    tProductos.FieldByName('FI_CATEGORIA').AsString := '01';
+    tProductos.FieldByName('FI_DESCRIPCIONDETALLADA').AsString := editDetalle.Text;
+    tProductos.FieldByName('FI_STATUS').AsBoolean := True;
+    tProductos.FieldByName('FI_CAPACIDAD').AsFloat := CapacidadSeleccionado;
+    tProductos.FieldByName('FI_MONEDA').AsString := '2';
+    tProductos.FieldByName('FI_SUBCATEGORIA').AsString := edtCATEGORIA.Text;
+    tProductos.Post;
+  except
+    on E: Exception do
+    begin
+      if tProductos.State in [dsEdit, dsInsert] then tProductos.Cancel;
+      raise Exception.Create('Error guardando producto: ' + E.Message);
+    end;
+  end;
+end;
+
+procedure TformArticulos.GuardarCostos;
+var
+  precioSinImpuesto, montoIVA: Double;
+begin
+  try
+    precioSinImpuesto := miPrecioSeleccionado / 1.16;
+    montoIVA := miPrecioSeleccionado - precioSinImpuesto;
+
+    if not tCostos.Active then tCostos.Open;
+
+    if tCostos.Locate('FIC_CODEITEM', editCodigo.Text, []) then
+      tCostos.Edit
+    else
+      tCostos.Append;
+
+    tCostos.FieldByName('FIC_CODEITEM').AsString := editCodigo.Text;
+    tCostos.FieldByName('FIC_IMP01ACTIVO').AsBoolean := True;
+    tCostos.FieldByName('FIC_IMP01PORCENT').AsBoolean := True;
+    tCostos.FieldByName('FIC_IMP01MONTO').AsFloat := miIVASeleccionado;
+    tCostos.FieldByName('FIC_IMP02MONTO').AsFloat := 8;
+    tCostos.FieldByName('FIC_COSTOACTBOLIVARES').AsFloat := miCostoBs;
+    tCostos.FieldByName('FIC_COSTOANTBOLIVARES').AsFloat := miCostoBs;
+    tCostos.FieldByName('FIC_COSTOANTEXTRANJERO').AsFloat := miCostoSeleccionado;
+    tCostos.FieldByName('FIC_COSTOACTEXTRANJERO').AsFloat := miCostoSeleccionado;
+    tCostos.FieldByName('FIC_COSTOPROMEDIOEXTRANJERO').AsFloat := miCostoSeleccionado;
+    tCostos.FieldByName('FIC_COSTOREFERENCIA').AsFloat := miCostoSeleccionado;
+    tCostos.FieldByName('FIC_P01UTILIDAD').AsFloat := miUtilidad;
+    tCostos.FieldByName('FIC_P01PRECIOSINIMPUESTO').AsFloat := precioSinImpuesto;
+    tCostos.FieldByName('FIC_P01IMTOIMPUESTO01').AsFloat := montoIVA;
+    tCostos.FieldByName('FIC_P01IPRECIOTOTAL').AsFloat := miPrecioSeleccionado;
+    tCostos.FieldByName('FIC_P01PORCENTUTILIDADEXT').AsBoolean := True;
+    tCostos.FieldByName('FIC_P01UTILIDADEXT').AsFloat := miUtilidad;
+    tCostos.FieldByName('FIC_P01PRECIOTOTALEXT').AsFloat := miPrecioDivisasSeleccionado;
+    tCostos.Post;
+  except
+    on E: Exception do
+    begin
+      if tCostos.State in [dsEdit, dsInsert] then tCostos.Cancel;
+      raise Exception.Create('Error guardando costos: ' + E.Message);
+    end;
+  end;
+end;
+
+procedure TformArticulos.GuardarSfixed;
+begin
+  try
+    if not tSfixed.Active then tSfixed.Open;
+
+    if tSfixed.Locate('FX_CODIGO', editCodigo.Text, []) then
+      tSfixed.Edit
+    else
+      tSfixed.Append;
+
+    tSfixed.FieldByName('FX_TIPO').AsString := 'B';
+    tSfixed.FieldByName('FX_CODIGO').AsString := editCodigo.Text;
+    tSfixed.FieldByName('FX_VISIBLE').AsBoolean := True;
+    tSfixed.FieldByName('FX_HASOPERATIONS').AsBoolean := True;
+    tSfixed.Post;
+  except
+    on E: Exception do
+    begin
+      if tSfixed.State in [dsEdit, dsInsert] then tSfixed.Cancel;
+      raise Exception.Create('Error guardando en SFIXED: ' + E.Message);
+    end;
+  end;
+end;
+
+procedure TformArticulos.GuardarArticuloCompleto;
+begin
+  try
+    if Trim(editCodigo.Text) = '' then
+    begin
+      ShowMessage('Error: Debe especificar el código del producto');
+      editCodigo.SetFocus; Exit;
+    end;
+
+    if Trim(editNombre.Text) = '' then
+    begin
+      ShowMessage('Error: Debe especificar la descripción del producto');
+      editNombre.SetFocus; Exit;
+    end;
+
+    if miCostoSeleccionado <= 0 then
+    begin
+      ShowMessage('Error: Debe especificar un costo válido');
+      editDivisas.SetFocus; Exit;
+    end;
+
+    if CapacidadSeleccionado <= 0 then
+    begin
+      ShowMessage('Error: Debe especificar la capacidad del bulto');
+      editCapacidad.SetFocus; Exit;
+    end;
+
+    GuardarProducto;
+    GuardarCostos;
+    GuardarSfixed;
+    GuardarCodigosAsociados;
+    ActualizarGridPresentaciones;
+
+    if accion = 1 then
+      ShowMessage('Artículo guardado exitosamente: ' + editCodigo.Text)
+    else
+      ShowMessage('Artículo actualizado exitosamente: ' + editCodigo.Text);
+
+    if accion = 1 then btn3Click(nil);
+  except
+    on E: Exception do
+      ShowMessage('Error al guardar el artículo: ' + E.Message);
+  end;
+end;
+
+// ============================================================================
+// PROCEDIMIENTOS DE CÓDIGOS ASOCIADOS
+// ============================================================================
+
+procedure TformArticulos.AgregarCodigoAsociado;
+var
+  i: Integer;
+  codigoExiste: Boolean;
+begin
+  try
+    codigoExiste := False;
+    for i := 0 to Length(ArrayCodigosAsociados) - 1 do
+    begin
+      if ArrayCodigosAsociados[i] = edtCodAsociado.Text then
+      begin
+        codigoExiste := True; Break;
+      end;
+    end;
+
+    if codigoExiste then
+    begin
+      ShowMessage('El código ya está en la lista.');
+      edtCodAsociado.SelectAll; Exit;
+    end;
+
+    SetLength(ArrayCodigosAsociados, Length(ArrayCodigosAsociados) + 1);
+    ArrayCodigosAsociados[Length(ArrayCodigosAsociados) - 1] := edtCodAsociado.Text;
+    ShowMessage('Código agregado. Total: ' + IntToStr(Length(ArrayCodigosAsociados)));
+    edtCodAsociado.Clear; edtCodAsociado.SetFocus;
+    Self.Caption := 'Artículos - Códigos: ' + IntToStr(Length(ArrayCodigosAsociados));
+  except
+    on E: Exception do
+      ShowMessage('Error agregando código: ' + E.Message);
+  end;
+end;
+
+procedure TformArticulos.GuardarCodigosAsociados;
+var
+  i: Integer;
+begin
+  try
+    if not tCodAsociado.Active then tCodAsociado.Open;
+
+    for i := 0 to Length(ArrayCodigosAsociados) - 1 do
+    begin
+      if not CodigoAsociadoExiste(ArrayCodigosAsociados[i]) then
+      begin
+        tCodAsociado.Append;
+        tCodAsociado.FieldByName('FBARRA_CODE').AsString := ArrayCodigosAsociados[i];
+        tCodAsociado.FieldByName('FBARRA_PRODUCTO').AsString := editCodigo.Text;
+        tCodAsociado.FieldByName('FBARRA_TIPO').AsInteger := 0;
+        tCodAsociado.Post;
+      end;
+    end;
+    LimpiarArrayCodigos;
+  except
+    on E: Exception do
+    begin
+      if tCodAsociado.State in [dsEdit, dsInsert] then tCodAsociado.Cancel;
+      raise Exception.Create('Error guardando códigos: ' + E.Message);
+    end;
+  end;
+end;
+
+procedure TformArticulos.GuardarCodigoDirecto(codigo: string);
+begin
+  try
+    if CodigoAsociadoExiste(codigo) then
+    begin
+      ShowMessage('El código ya está asociado.');
+      edtCodAsociado.SelectAll; Exit;
+    end;
+
+    if not tCodAsociado.Active then tCodAsociado.Open;
+
+    tCodAsociado.Append;
+    tCodAsociado.FieldByName('FBARRA_CODE').AsString := codigo;
+    tCodAsociado.FieldByName('FBARRA_PRODUCTO').AsString := editCodigo.Text;
+    tCodAsociado.FieldByName('FBARRA_TIPO').AsInteger := 0;
+    tCodAsociado.Post;
+
+    ShowMessage('Código guardado exitosamente.');
+    edtCodAsociado.Clear; edtCodAsociado.SetFocus;
+    if accion = 2 then RefrescarGridCodigosAsociados;
+  except
+    on E: Exception do
+    begin
+      if tCodAsociado.State in [dsEdit, dsInsert] then tCodAsociado.Cancel;
+      ShowMessage('Error guardando código: ' + E.Message);
+    end;
+  end;
+end;
+
+function TformArticulos.CodigoAsociadoExiste(codigo: string): Boolean;
+begin
+  Result := False;
+  try
+    if not tCodAsociado.Active then tCodAsociado.Open;
+    tCodAsociado.First;
+    while not tCodAsociado.Eof do
+    begin
+      if (tCodAsociado.FieldByName('FBARRA_CODE').AsString = codigo) and
+         (tCodAsociado.FieldByName('FBARRA_PRODUCTO').AsString = editCodigo.Text) then
+      begin
+        Result := True; Break;
+      end;
+      tCodAsociado.Next;
+    end;
+  except
+    on E: Exception do
+      ShowMessage('Error verificando código: ' + E.Message);
+  end;
+end;
+
+procedure TformArticulos.LimpiarArrayCodigos;
+begin
+  SetLength(ArrayCodigosAsociados, 0);
+  Self.Caption := 'Artículos';
+end;
+
+procedure TformArticulos.MostrarCodigosEnArray;
+var
+  i: Integer;
+  lista: string;
+begin
+  if Length(ArrayCodigosAsociados) = 0 then
+    lista := 'No hay códigos en la lista'
+  else
+  begin
+    lista := 'Códigos en la lista:' + sLineBreak;
+    for i := 0 to Length(ArrayCodigosAsociados) - 1 do
+      lista := lista + IntToStr(i + 1) + '. ' + ArrayCodigosAsociados[i] + sLineBreak;
+  end;
+  ShowMessage(lista);
+end;
+
+function TformArticulos.ValidarCodigoAsociado: Boolean;
+begin
+  Result := True;
+  if Trim(editCodigo.Text) = '' then
+  begin
+    ShowMessage('Debe tener un código de producto.');
+    Result := False; Exit;
+  end;
+
+  if Trim(edtCodAsociado.Text) = '' then
+  begin
+    ShowMessage('Debe ingresar un código asociado.');
+    edtCodAsociado.SetFocus; Result := False; Exit;
+  end;
+end;
+
+procedure TformArticulos.RefrescarGridCodigosAsociados;
+begin
+  try
+    if sqCodAsociado.Active then sqCodAsociado.Close;
+    sqCodAsociado.SQL.Text := 'SELECT FBARRA_CODE, FBARRA_PRODUCTO, FBARRA_TIPO FROM sCodeBar WHERE FBARRA_PRODUCTO = :producto ORDER BY FBARRA_CODE';
+    sqCodAsociado.ParamByName('producto').AsString := editCodigo.Text;
+    sqCodAsociado.Open;
+  except
+    on E: Exception do
+      ShowMessage('Error refrescando códigos: ' + E.Message);
+  end;
+end;
+
+// Procedimientos vacíos para evitar errores
+procedure TformArticulos.ActualizarProductoSQL;
+begin
+  // Implementación futura
+end;
+
+procedure TformArticulos.ActualizarCostosSQL;
+begin
+  // Implementación futura
+end;
+
+function TformArticulos.ValidarDatosCompletos: Boolean;
+begin
+  Result := True;
+  // Implementación futura
+end;
+
+function TformArticulos.VerificarTablas: Boolean;
+begin
+  Result := True;
+  // Implementación futura
+end;
+
+end.

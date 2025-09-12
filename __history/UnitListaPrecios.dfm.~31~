@@ -1,0 +1,576 @@
+object FormLista: TFormLista
+  Left = 0
+  Top = 0
+  Caption = 'FormLista'
+  ClientHeight = 115
+  ClientWidth = 326
+  Color = clWhite
+  Font.Charset = DEFAULT_CHARSET
+  Font.Color = clWindowText
+  Font.Height = -11
+  Font.Name = 'Tahoma'
+  Font.Style = []
+  OldCreateOrder = False
+  Position = poMainFormCenter
+  PixelsPerInch = 96
+  TextHeight = 13
+  object rgSeleccion: TRadioGroup
+    Left = 8
+    Top = 32
+    Width = 305
+    Height = 193
+    Caption = 'Filtro'
+    ItemIndex = 0
+    Items.Strings = (
+      'Todos'
+      'Todos, 1 Lote el de Menor Existencia'
+      'Todos, 1 Lote el mas Proximo a Vencer'
+      'Todos, 1 Lote el de Existencia Mayor o Igual a'
+      'Por Laboratorio')
+    TabOrder = 0
+    Visible = False
+    OnClick = rgSeleccionClick
+  end
+  object rgFiltro: TRadioGroup
+    Left = 376
+    Top = 32
+    Width = 258
+    Height = 81
+    Caption = 'Alcance'
+    ItemIndex = 0
+    Items.Strings = (
+      'Todos Los Lotes'
+      '1 Solo Lote')
+    TabOrder = 1
+    Visible = False
+  end
+  object rgDetalle: TRadioGroup
+    Left = 376
+    Top = 119
+    Width = 257
+    Height = 81
+    Caption = 'Detalle Existencia    '
+    ItemIndex = 0
+    Items.Strings = (
+      'Todos'
+      'Cantidad Menor o Igual a')
+    TabOrder = 2
+    Visible = False
+  end
+  object Edit1: TEdit
+    Left = 256
+    Top = 152
+    Width = 42
+    Height = 24
+    Alignment = taRightJustify
+    Font.Charset = DEFAULT_CHARSET
+    Font.Color = clWindowText
+    Font.Height = -13
+    Font.Name = 'Tahoma'
+    Font.Style = []
+    ParentFont = False
+    TabOrder = 3
+    Text = '0'
+  end
+  object Button1: TButton
+    Left = 8
+    Top = 32
+    Width = 137
+    Height = 70
+    Caption = 'Exportar'
+    TabOrder = 4
+    OnClick = Button1Click
+  end
+  object lkMarca: TDBLookupComboBox
+    Left = 112
+    Top = 192
+    Width = 186
+    Height = 21
+    KeyField = 'FI_MARCA'
+    ListField = 'FI_MARCA'
+    ListSource = dsMarca
+    TabOrder = 5
+  end
+  object btn1: TButton
+    Left = 151
+    Top = 32
+    Width = 153
+    Height = 70
+    Caption = 'eCompras'
+    TabOrder = 6
+    OnClick = btn1Click
+  end
+  object frLista: TfrxReport
+    Version = '6.9.15'
+    DotMatrixReport = False
+    IniFile = '\Software\Fast Reports'
+    PreviewOptions.Buttons = [pbPrint, pbLoad, pbSave, pbExport, pbZoom, pbFind, pbOutline, pbPageSetup, pbTools, pbEdit, pbNavigator, pbExportQuick, pbCopy, pbSelection]
+    PreviewOptions.Zoom = 1.000000000000000000
+    PrintOptions.Printer = 'Default'
+    PrintOptions.PrintOnSheet = 0
+    ReportOptions.CreateDate = 45288.023256435200000000
+    ReportOptions.LastChange = 45288.023256435200000000
+    ScriptLanguage = 'PascalScript'
+    ScriptText.Strings = (
+      ''
+      'begin'
+      ''
+      'end.')
+    Left = 80
+    Top = 42
+    Datasets = <
+      item
+        DataSet = fsqPrecios
+        DataSetName = 'precios'
+      end>
+    Variables = <>
+    Style = <>
+    object Data: TfrxDataPage
+      Height = 1000.000000000000000000
+      Width = 1000.000000000000000000
+    end
+    object Page1: TfrxReportPage
+      Orientation = poLandscape
+      PaperWidth = 350.000000000000000000
+      PaperHeight = 215.900000000000000000
+      PaperSize = 256
+      LeftMargin = 10.000000000000000000
+      RightMargin = 10.000000000000000000
+      TopMargin = 10.000000000000000000
+      BottomMargin = 10.000000000000000000
+      Frame.Typ = []
+      MirrorMode = []
+      object MasterData1: TfrxMasterData
+        FillType = ftBrush
+        FillGap.Top = 0
+        FillGap.Left = 0
+        FillGap.Bottom = 0
+        FillGap.Right = 0
+        Frame.Typ = []
+        Height = 22.677180000000000000
+        Top = 166.299320000000000000
+        Width = 1247.244900000000000000
+        DataSet = fsqPrecios
+        DataSetName = 'precios'
+        RowCount = 0
+        object preciosFI_DESCRIPCION: TfrxMemoView
+          IndexTag = 1
+          AllowVectorExport = True
+          Left = 359.055350000000000000
+          Top = 3.779530000000000000
+          Width = 495.118430000000000000
+          Height = 15.118120000000000000
+          DataField = 'FI_DESCRIPCION'
+          DataSet = fsqPrecios
+          DataSetName = 'precios'
+          Font.Charset = DEFAULT_CHARSET
+          Font.Color = clBlack
+          Font.Height = -11
+          Font.Name = 'Arial'
+          Font.Style = []
+          Frame.Typ = []
+          Memo.UTF8W = (
+            '[precios."FI_DESCRIPCION"]')
+          ParentFont = False
+        end
+        object preciosFL_CODIGO: TfrxMemoView
+          IndexTag = 1
+          AllowVectorExport = True
+          Top = 3.779530000000000000
+          Width = 90.708720000000000000
+          Height = 15.118120000000000000
+          DataField = 'FL_CODIGO'
+          DataSet = fsqPrecios
+          DataSetName = 'precios'
+          Font.Charset = DEFAULT_CHARSET
+          Font.Color = clBlack
+          Font.Height = -11
+          Font.Name = 'Arial'
+          Font.Style = []
+          Frame.Typ = []
+          Memo.UTF8W = (
+            '[precios."FL_CODIGO"]')
+          ParentFont = False
+        end
+        object preciosFL_LOTE: TfrxMemoView
+          IndexTag = 1
+          AllowVectorExport = True
+          Left = 907.087200000000000000
+          Top = 3.779530000000000000
+          Width = 79.370130000000000000
+          Height = 15.118120000000000000
+          DataField = 'FL_LOTE'
+          DataSet = fsqPrecios
+          DataSetName = 'precios'
+          Font.Charset = DEFAULT_CHARSET
+          Font.Color = clBlack
+          Font.Height = -11
+          Font.Name = 'Arial'
+          Font.Style = []
+          Frame.Typ = []
+          Memo.UTF8W = (
+            '[precios."FL_LOTE"]')
+          ParentFont = False
+        end
+        object preciosFL_VENCIMIENTO: TfrxMemoView
+          IndexTag = 1
+          AllowVectorExport = True
+          Left = 1001.575450000000000000
+          Top = 3.779530000000000000
+          Width = 71.811070000000000000
+          Height = 15.118120000000000000
+          DataField = 'FL_VENCIMIENTO'
+          DataSet = fsqPrecios
+          DataSetName = 'precios'
+          Font.Charset = DEFAULT_CHARSET
+          Font.Color = clBlack
+          Font.Height = -11
+          Font.Name = 'Arial'
+          Font.Style = []
+          Frame.Typ = []
+          Memo.UTF8W = (
+            '[precios."FL_VENCIMIENTO"]')
+          ParentFont = False
+        end
+        object preciosFL_PRECIOSINIMPUESTO: TfrxMemoView
+          IndexTag = 1
+          AllowVectorExport = True
+          Left = 1080.945580000000000000
+          Top = 3.779530000000000000
+          Width = 49.133890000000000000
+          Height = 15.118120000000000000
+          DataSet = fsqPrecios
+          DataSetName = 'precios'
+          DisplayFormat.FormatStr = '%2.2n'
+          DisplayFormat.Kind = fkNumeric
+          Font.Charset = DEFAULT_CHARSET
+          Font.Color = clBlack
+          Font.Height = -11
+          Font.Name = 'Arial'
+          Font.Style = []
+          Frame.Typ = []
+          HAlign = haRight
+          Memo.UTF8W = (
+            '[precios."FL_PRECIOIMPORTADO"] $')
+          ParentFont = False
+        end
+        object preciosFI_CATEGORIA: TfrxMemoView
+          IndexTag = 1
+          AllowVectorExport = True
+          Left = 253.228510000000000000
+          Top = 3.779530000000000000
+          Width = 102.047310000000000000
+          Height = 15.118120000000000000
+          DataField = 'FD_DESCRIPCION'
+          DataSet = fsqPrecios
+          DataSetName = 'precios'
+          Font.Charset = DEFAULT_CHARSET
+          Font.Color = clBlack
+          Font.Height = -11
+          Font.Name = 'Arial'
+          Font.Style = []
+          Frame.Typ = []
+          Memo.UTF8W = (
+            '[precios."FD_DESCRIPCION"]')
+          ParentFont = False
+        end
+        object preciosFI_REFERENCIA: TfrxMemoView
+          IndexTag = 1
+          AllowVectorExport = True
+          Left = 94.488250000000000000
+          Top = 3.779530000000000000
+          Width = 158.740260000000000000
+          Height = 15.118120000000000000
+          DataField = 'FI_REFERENCIA'
+          DataSet = fsqPrecios
+          DataSetName = 'precios'
+          Font.Charset = DEFAULT_CHARSET
+          Font.Color = clBlack
+          Font.Height = -11
+          Font.Name = 'Arial'
+          Font.Style = []
+          Frame.Typ = []
+          Memo.UTF8W = (
+            '[precios."FI_REFERENCIA"]')
+          ParentFont = False
+        end
+        object preciosExistencia: TfrxMemoView
+          IndexTag = 1
+          AllowVectorExport = True
+          Left = 1137.638530000000000000
+          Top = 3.779530000000000000
+          Width = 79.370130000000000000
+          Height = 15.118120000000000000
+          DataField = 'Existencia'
+          DataSet = fsqPrecios
+          DataSetName = 'precios'
+          Font.Charset = DEFAULT_CHARSET
+          Font.Color = clBlack
+          Font.Height = -11
+          Font.Name = 'Arial'
+          Font.Style = []
+          Frame.Typ = []
+          Memo.UTF8W = (
+            '[precios."Existencia"]')
+          ParentFont = False
+        end
+      end
+      object ReportTitle1: TfrxReportTitle
+        FillType = ftBrush
+        FillGap.Top = 0
+        FillGap.Left = 0
+        FillGap.Bottom = 0
+        FillGap.Right = 0
+        Frame.Typ = []
+        Height = 86.929190000000000000
+        Top = 18.897650000000000000
+        Width = 1247.244900000000000000
+        object Shape1: TfrxShapeView
+          AllowVectorExport = True
+          Left = 3.779530000000000000
+          Top = 64.252010000000000000
+          Width = 1224.567720000000000000
+          Height = 18.897650000000000000
+          Frame.Typ = []
+        end
+        object Memo1: TfrxMemoView
+          AllowVectorExport = True
+          Left = 7.559060000000000000
+          Top = 68.031540000000000000
+          Width = 68.031540000000000000
+          Height = 11.338590000000000000
+          Font.Charset = DEFAULT_CHARSET
+          Font.Color = clBlack
+          Font.Height = -9
+          Font.Name = 'Arial'
+          Font.Style = [fsBold]
+          Frame.Typ = []
+          Memo.UTF8W = (
+            'CODIGO')
+          ParentFont = False
+        end
+        object Memo3: TfrxMemoView
+          AllowVectorExport = True
+          Left = 355.275820000000000000
+          Top = 68.031540000000000000
+          Width = 113.385900000000000000
+          Height = 11.338590000000000000
+          Font.Charset = DEFAULT_CHARSET
+          Font.Color = clBlack
+          Font.Height = -9
+          Font.Name = 'Arial'
+          Font.Style = [fsBold]
+          Frame.Typ = []
+          Memo.UTF8W = (
+            'ARTICULO')
+          ParentFont = False
+        end
+        object Memo4: TfrxMemoView
+          AllowVectorExport = True
+          Left = 1080.945580000000000000
+          Top = 68.031540000000000000
+          Width = 49.133890000000000000
+          Height = 11.338590000000000000
+          Font.Charset = DEFAULT_CHARSET
+          Font.Color = clBlack
+          Font.Height = -9
+          Font.Name = 'Arial'
+          Font.Style = [fsBold]
+          Frame.Typ = []
+          Memo.UTF8W = (
+            'PVP')
+          ParentFont = False
+        end
+        object Memo15: TfrxMemoView
+          AllowVectorExport = True
+          Left = 1001.575450000000000000
+          Top = 68.031540000000000000
+          Width = 71.811070000000000000
+          Height = 15.118120000000000000
+          Font.Charset = DEFAULT_CHARSET
+          Font.Color = clBlack
+          Font.Height = -9
+          Font.Name = 'Arial'
+          Font.Style = [fsBold]
+          Frame.Typ = []
+          Memo.UTF8W = (
+            'VENCIMIENTO')
+          ParentFont = False
+        end
+        object Memo6: TfrxMemoView
+          AllowVectorExport = True
+          Left = 914.646260000000000000
+          Top = 68.031540000000000000
+          Width = 79.370130000000000000
+          Height = 15.118120000000000000
+          Font.Charset = DEFAULT_CHARSET
+          Font.Color = clBlack
+          Font.Height = -9
+          Font.Name = 'Arial'
+          Font.Style = [fsBold]
+          Frame.Typ = []
+          Memo.UTF8W = (
+            'LOTE')
+          ParentFont = False
+        end
+        object Memo13: TfrxMemoView
+          AllowVectorExport = True
+          Left = 7.559060000000000000
+          Top = 3.779530000000000000
+          Width = 249.448980000000000000
+          Height = 18.897650000000000000
+          Font.Charset = DEFAULT_CHARSET
+          Font.Color = clBlack
+          Font.Height = -16
+          Font.Name = 'Arial'
+          Font.Style = [fsBold]
+          Frame.Typ = []
+          Memo.UTF8W = (
+            'DROGUERIA EL AMPARO, C.A.')
+          ParentFont = False
+        end
+        object Memo14: TfrxMemoView
+          AllowVectorExport = True
+          Left = 7.559060000000000000
+          Top = 26.456710000000000000
+          Width = 763.465060000000000000
+          Height = 18.897650000000000000
+          Font.Charset = DEFAULT_CHARSET
+          Font.Color = clBlack
+          Font.Height = -12
+          Font.Name = 'Arial'
+          Font.Style = [fsItalic]
+          Frame.Typ = []
+          Memo.UTF8W = (
+            'LISTA DE PRECIOS')
+          ParentFont = False
+          Formats = <
+            item
+            end
+            item
+            end>
+        end
+        object Page: TfrxMemoView
+          IndexTag = 1
+          AllowVectorExport = True
+          Left = 933.543910000000000000
+          Top = 22.677180000000000000
+          Width = 79.370130000000000000
+          Height = 18.897650000000000000
+          Frame.Typ = []
+          Memo.UTF8W = (
+            '[Page]')
+        end
+        object Memo20: TfrxMemoView
+          AllowVectorExport = True
+          Left = 888.189550000000000000
+          Top = 22.677180000000000000
+          Width = 37.795300000000000000
+          Height = 18.897650000000000000
+          Frame.Typ = []
+          Memo.UTF8W = (
+            'Pag.')
+        end
+        object Memo8: TfrxMemoView
+          AllowVectorExport = True
+          Left = 234.330860000000000000
+          Top = 68.031540000000000000
+          Width = 113.385900000000000000
+          Height = 11.338590000000000000
+          Font.Charset = DEFAULT_CHARSET
+          Font.Color = clBlack
+          Font.Height = -9
+          Font.Name = 'Arial'
+          Font.Style = [fsBold]
+          Frame.Typ = []
+          Memo.UTF8W = (
+            'DEPARTAMENTO')
+          ParentFont = False
+        end
+        object Memo10: TfrxMemoView
+          AllowVectorExport = True
+          Left = 83.149660000000000000
+          Top = 68.031540000000000000
+          Width = 154.960730000000000000
+          Height = 11.338590000000000000
+          Font.Charset = DEFAULT_CHARSET
+          Font.Color = clBlack
+          Font.Height = -9
+          Font.Name = 'Arial'
+          Font.Style = [fsBold]
+          Frame.Typ = []
+          Memo.UTF8W = (
+            'LABORATORIO')
+          ParentFont = False
+        end
+      end
+    end
+  end
+  object fsqPrecios: TfrxDBDataset
+    UserName = 'precios'
+    CloseDataSource = False
+    FieldAliases.Strings = (
+      'FL_CODIGO=FL_CODIGO'
+      'FI_DESCRIPCION=FI_DESCRIPCION'
+      'FL_LOTE=FL_LOTE'
+      'FL_COSTO=FL_COSTO'
+      'FL_PRECIOSINIMPUESTO=FL_PRECIOSINIMPUESTO'
+      'FL_MONTOIMPUESTO1=FL_MONTOIMPUESTO1'
+      'FL_MONTOIMPUESTO2=FL_MONTOIMPUESTO2'
+      'FT_CODIGOPRODUCTO=FT_CODIGOPRODUCTO'
+      'Existencia=Existencia'
+      'FL_PRECIOIMPORTADO=FL_PRECIOIMPORTADO'
+      'FL_VENCIMIENTO=FL_VENCIMIENTO'
+      'ZZCAMPO_001=ZZCAMPO_001'
+      'FI_CATEGORIA=FI_CATEGORIA'
+      'FD_DESCRIPCION=FD_DESCRIPCION'
+      'FI_REFERENCIA=FI_REFERENCIA')
+    DataSet = d.sqLista
+    BCDToCurrency = False
+    Left = 174
+    Top = 122
+  end
+  object EXCLISTA: TfrxXLSExport
+    UseFileCache = True
+    ShowProgress = True
+    OverwritePrompt = False
+    DataOnly = False
+    ExportEMF = True
+    AsText = False
+    Background = True
+    FastExport = True
+    PageBreaks = True
+    EmptyLines = True
+    SuppressPageHeadersFooters = False
+    Left = 152
+    Top = 2
+  end
+  object expListaPrecios: TfrxXLSXExport
+    UseFileCache = True
+    ShowProgress = True
+    OverwritePrompt = False
+    DataOnly = False
+    ChunkSize = 0
+    OpenAfterExport = False
+    PictureType = gpPNG
+    Left = 88
+    Top = 2
+  end
+  object SQmarca: TDBISAMQuery
+    DatabaseName = 'data2'
+    EngineVersion = '4.49 Build 4'
+    SQL.Strings = (
+      'SELECT FI_MARCA FROM SINVENTARIO '
+      'WHERE FI_REFERENCIA  <> '#39#39
+      'GROUP BY FI_MARCA'
+      'ORDER BY FI_MARCA ASC')
+    Params = <>
+    Left = 248
+    Top = 96
+  end
+  object dsMarca: TDataSource
+    DataSet = SQmarca
+    Left = 184
+    Top = 96
+  end
+end

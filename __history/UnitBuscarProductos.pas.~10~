@@ -1,0 +1,159 @@
+unit UnitBuscarProductos;
+
+interface
+
+uses
+  Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants, System.Classes, Vcl.Graphics,
+  Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Data.DB, Vcl.Grids, Vcl.DBGrids,
+  Vcl.ExtCtrls, Vcl.Buttons, Vcl.StdCtrls, System.UITypes, dbisamtb;
+
+type
+  TformBuscarArticulo = class(TForm)
+    pnl1: TPanel;
+    pnl2: TPanel;
+    DBGrid1: TDBGrid;
+    editProducto: TEdit;
+    btnBuscar: TSpeedButton;
+    SQBuscar: TDBISAMQuery;
+    dsBuscar: TDataSource;
+    rgBuscar: TRadioGroup;
+    procedure btnBuscarClick(Sender: TObject);
+    procedure FormShow(Sender: TObject);
+    procedure DBGrid1DblClick(Sender: TObject);
+  private
+    { Private declarations }
+  public
+    { Public declarations }
+  CodigoSeleccionado: string;
+  NombreSeleccionado: string;
+  DivisasSeleccionado: string;
+  UtilidadSeleccionado: string;
+  DetalleSeleccionado: string;
+
+  // Variables decimales
+  IVASeleccionado: Currency;
+  CostoSeleccionado: Currency;
+  PrecioSeleccionado: Currency;
+  PrecioDivisasSeleccionado: Currency;
+  CapacidadSeleccionado: Double;
+  end;
+
+var
+  formBuscarArticulo: TformBuscarArticulo;
+
+implementation
+
+uses
+  UnitDatos;
+
+{$R *.dfm}
+
+procedure TformBuscarArticulo.btnBuscarClick(Sender: TObject);
+var
+  sqlQuery: string;
+begin
+  // Cerrar el query si está abierto
+  if sqBuscar.Active then
+    sqBuscar.Close;
+
+  case rgBuscar.ItemIndex of
+    0: begin
+      // Búsqueda exacta por código
+      sqlQuery :=
+        'SELECT ' +
+        '  s.FI_CODIGO, ' +
+        '  s.FI_DESCRIPCION, ' +
+        '  s.FI_CATEGORIA, ' +
+        '  s.FI_DESCRIPCIONDETALLADA, ' +
+        '  s.FI_CAPACIDAD, ' +
+        '  p.FIC_IMP01MONTO, ' +
+        '  p.FIC_COSTOACTEXTRANJERO, ' +
+        '  p.FIC_COSTOANTEXTRANJERO, ' +
+        '  p.FIC_COSTOPROMEDIOEXTRANJERO, ' +
+        '  p.FIC_P01PORCENTUTILIDADEXT, ' +
+        '  p.FIC_P01PRECIOSINIMPUESTO, ' +
+        '  p.FIC_P01IMTOIMPUESTO01, ' +
+        '  p.FIC_P01IPRECIOTOTAL, ' +
+        '  p.FIC_P01PRECIOTOTALEXT, ' +
+        '  p.FIC_P01UTILIDADEXT ' +
+        'FROM sinventario s ' +
+        'LEFT JOIN a2InvCostosPrecios p ON s.FI_CODIGO = p.FIC_CODEITEM ' +
+        'WHERE s.FI_CODIGO = :codigo';
+
+      sqBuscar.SQL.Text := sqlQuery;
+      sqBuscar.ParamByName('codigo').AsString := editProducto.Text;  // Asume que tienes un edit para buscar
+    end;
+
+    1: begin
+      // Búsqueda por descripción con LIKE
+      sqlQuery :=
+        'SELECT ' +
+        '  s.FI_CODIGO, ' +
+        '  s.FI_DESCRIPCION, ' +
+        '  s.FI_CATEGORIA, ' +
+        '  s.FI_DESCRIPCIONDETALLADA, ' +
+        '  s.FI_CAPACIDAD, ' +
+        '  p.FIC_IMP01MONTO, ' +
+        '  p.FIC_COSTOACTEXTRANJERO, ' +
+        '  p.FIC_COSTOANTEXTRANJERO, ' +
+        '  p.FIC_COSTOPROMEDIOEXTRANJERO, ' +
+        '  p.FIC_P01PORCENTUTILIDADEXT, ' +
+        '  p.FIC_P01PRECIOSINIMPUESTO, ' +
+        '  p.FIC_P01IMTOIMPUESTO01, ' +
+        '  p.FIC_P01IPRECIOTOTAL, ' +
+        '  p.FIC_P01PRECIOTOTALEXT, ' +
+        '  p.FIC_P01UTILIDADEXT ' +
+        'FROM sinventario s ' +
+        'LEFT JOIN a2InvCostosPrecios p ON s.FI_CODIGO = p.FIC_CODEITEM ' +
+        'WHERE s.FI_DESCRIPCION LIKE :descripcion';
+
+      sqBuscar.SQL.Text := sqlQuery;
+      sqBuscar.ParamByName('descripcion').AsString := '%' + editProducto.Text + '%';
+    end;
+  end;
+
+  // Ejecutar la consulta
+  try
+    sqBuscar.Open;
+
+    // Verificar si encontró resultados
+    if sqBuscar.RecordCount = 0 then
+      ShowMessage('No se encontraron resultados para la búsqueda.')
+    else
+      ShowMessage('Se encontraron ' + IntToStr(sqBuscar.RecordCount) + ' registros.');
+
+  except
+    on E: Exception do
+      ShowMessage('Error en la búsqueda: ' + E.Message);
+  end;
+end;
+
+procedure TformBuscarArticulo.DBGrid1DblClick(Sender: TObject);
+begin
+
+  if not sqBuscar.IsEmpty then
+  begin
+    // Variables string
+    CodigoSeleccionado := sqBuscar.FieldByName('FI_CODIGO').AsString;
+    NombreSeleccionado := sqBuscar.FieldByName('FI_DESCRIPCION').AsString;
+    DivisasSeleccionado := sqBuscar.FieldByName('FI_CATEGORIA').AsString;
+    UtilidadSeleccionado := sqBuscar.FieldByName('FIC_P01PORCENTUTILIDADEXT').AsString;
+    DetalleSeleccionado := sqBuscar.FieldByName('FI_DESCRIPCIONDETALLADA').AsString;
+
+    // Variables decimales
+    IVASeleccionado := sqBuscar.FieldByName('FIC_IMP01MONTO').AsCurrency;
+    CostoSeleccionado := sqBuscar.FieldByName('FIC_COSTOACTEXTRANJERO').AsCurrency;
+    PrecioSeleccionado := sqBuscar.FieldByName('FIC_P01IPRECIOTOTAL').AsCurrency;
+    PrecioDivisasSeleccionado := sqBuscar.FieldByName('FIC_P01PRECIOTOTALEXT').AsCurrency;
+    CapacidadSeleccionado := sqBuscar.FieldByName('FI_CAPACIDAD').AsFloat;
+
+    ModalResult := mrOk;
+  end;
+end;
+
+procedure TformBuscarArticulo.FormShow(Sender: TObject);
+begin
+editProducto.SetFocus;
+end;
+
+end.

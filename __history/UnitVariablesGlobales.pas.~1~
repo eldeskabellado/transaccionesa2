@@ -1,0 +1,29 @@
+unit UnitVariablesGlobales;
+
+interface
+
+var
+  // Variables globales para iCompras360
+  TasaCambiaria: Double = 29.30;        // Factor cambiario del día
+  RIFEmpresa: string = '500726856';     // RIF de la empresa (solo números)
+  NombreEmpresa: string = 'DROGUERIA EL AMPARO, C.A.';
+  CodigoProveedor: string = 'J500726856'; // RIF completo para proveedor
+
+  // Configuración TP3
+  RutaArchivosTP3: string = '';         // Se inicializa en runtime
+  GenerandoArchivo: Boolean = False;    // Control de proceso en curso
+
+  // Configuración de archivos
+  NombreArchivoInventario: string = 'inventario.txt';
+  NombreArchivoClientes: string = 'clientes.txt';
+
+  // Control de hilos
+  ProcesoEnCurso: Boolean = False;
+
+implementation
+
+initialization
+  // Inicializar ruta por defecto
+  RutaArchivosTP3 := ExtractFilePath(ParamStr(0)) + 'TP3\';
+
+end.

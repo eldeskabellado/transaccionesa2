@@ -524,8 +524,8 @@ object formEditFactura: TformEditFactura
     Top = 32
     Width = 186
     Height = 33
-    Date = 44927.436146423620000000
-    Time = 44927.436146423620000000
+    Date = 44927.000000000000000000
+    Time = 0.436146423620812100
     Font.Charset = DEFAULT_CHARSET
     Font.Color = clWindowText
     Font.Height = -21
@@ -580,7 +580,7 @@ object formEditFactura: TformEditFactura
   end
   object sqFac: TDBISAMQuery
     DatabaseName = 'data2'
-    EngineVersion = '4.43 Build 1'
+    EngineVersion = '4.49 Build 4'
     SQL.Strings = (
       
         'SELECT S.FCC_FACTORCAMBIO, S.FCC_SALDODOCUMENTO,  S.FCC_MONTOMON' +
@@ -662,7 +662,7 @@ object formEditFactura: TformEditFactura
   end
   object sqEdt: TDBISAMQuery
     DatabaseName = 'data2'
-    EngineVersion = '4.43 Build 1'
+    EngineVersion = '4.49 Build 4'
     SQL.Strings = (
       
         'UPDATE sCuentasxcobrar SET FCC_SALDODOCUMENTO = :SALDO, FCC_FECH' +

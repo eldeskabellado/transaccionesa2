@@ -1,0 +1,45 @@
+unit UnitBuscarProductos;
+
+interface
+
+uses
+  Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants, System.Classes, Vcl.Graphics,
+  Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Data.DB, Vcl.Grids, Vcl.DBGrids,
+  Vcl.ExtCtrls, Vcl.Buttons, Vcl.StdCtrls, System.UITypes;
+
+type
+  TformBuscarArticulo = class(TForm)
+    pnl1: TPanel;
+    pnl2: TPanel;
+    DBGrid1: TDBGrid;
+    editProducto: TEdit;
+    btnBuscar: TSpeedButton;
+  private
+    { Private declarations }
+  public
+    { Public declarations }
+  CodigoSeleccionado: string;
+  NombreSeleccionado: string;
+  DivisasSeleccionado: string;
+  UtilidadSeleccionado: string;
+  DetalleSeleccionado: string;
+
+  // Variables decimales
+  IVASeleccionado: Currency;
+  CostoSeleccionado: Currency;
+  PrecioSeleccionado: Currency;
+  PrecioDivisasSeleccionado: Currency;
+  CapacidadSeleccionado: Double;
+  end;
+
+var
+  formBuscarArticulo: TformBuscarArticulo;
+
+implementation
+
+uses
+  UnitDatos;
+
+{$R *.dfm}
+
+end.

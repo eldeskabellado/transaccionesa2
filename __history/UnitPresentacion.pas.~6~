@@ -1,0 +1,51 @@
+unit UnitPresentacion;
+
+interface
+
+uses
+  Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants, System.Classes, Vcl.Graphics,
+  Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.StdCtrls, Vcl.ExtCtrls;
+
+type
+  TformPresentaciones = class(TForm)
+    pnl1: TPanel;
+    pnl2: TPanel;
+    editPresentacion: TEdit;
+    editCantidad: TEdit;
+  private
+    { Private declarations }
+  public
+    { Public declarations }
+    codigoPadre,
+    nombrepadre,
+    presentacion,
+    nombrehijo: string;
+    miFactor: Currency;
+    capacidadBulto:Double;
+    costoBulto:Double;
+    costoDetallado:Double;
+    costoPresentacion:Double;
+    cantidadPresentacion:Double;
+    utilidadPresentacion:Double;
+    precioPresenacionSInIVA:Double;
+    ivaPresentacion:Double;
+    precioPresentacion:Double;
+
+  end;
+    procedure GenerarNombreHijo;
+    function CalcularCostoDetallado: Double;
+    function CalcularCostoPresentacion: Double;
+    function CalcularPrecioPresentacion: Double;
+    function CalcularPrecioSinIVA(TasaIVA: Double = 16.0): Double;
+    function CalcularIVA(TasaIVA: Double = 16.0): Double;
+    procedure ProcesarTodosLosCalculos(TasaIVA: Double = 16.0);
+    procedure MostrarResultados;
+    procedure LimpiarVariables;
+var
+  formPresentaciones: TformPresentaciones;
+
+implementation
+
+{$R *.dfm}
+
+end.

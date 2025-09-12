@@ -1,0 +1,180 @@
+unit UnitPresentacion;
+
+interface
+
+uses
+  Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants, System.Classes, Vcl.Graphics,
+  Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.StdCtrls, Vcl.ExtCtrls;
+
+type
+  TformPresentaciones = class(TForm)
+    pnl1: TPanel;
+    pnl2: TPanel;
+    editPresentacion: TEdit;
+    editCantidad: TEdit;
+  private
+    { Private declarations }
+  public
+    { Public declarations }
+    codigoPadre,
+    nombrepadre,
+    presentacion,
+    nombrehijo: string;
+    miFactor: Currency;
+    capacidadBulto: Double;
+    costoBulto: Double;
+    costoDetallado: Double;
+    costoPresentacion: Double;
+    cantidadPresentacion: Double;
+    utilidadPresentacion: Double;
+    precioPresenacionSInIVA: Double;
+    ivaPresentacion: Double;
+    precioPresentacion: Double;
+
+    // Métodos para los cálculos - DEBEN ESTAR DENTRO DE LA CLASE
+    procedure GenerarNombreHijo;
+    function CalcularCostoDetallado: Double;
+    function CalcularCostoPresentacion: Double;
+    function CalcularPrecioPresentacion: Double;
+    function CalcularPrecioSinIVA(TasaIVA: Double = 16.0): Double;
+    function CalcularIVA(TasaIVA: Double = 16.0): Double;
+    procedure ProcesarTodosLosCalculos(TasaIVA: Double = 16.0);
+    procedure MostrarResultados;
+    procedure LimpiarVariables;
+  end;
+
+var
+  formPresentaciones: TformPresentaciones;
+
+implementation
+
+{$R *.dfm}
+
+// Genera el nombre hijo concatenando nombre padre + presentación
+procedure TformPresentaciones.GenerarNombreHijo;
+begin
+  nombrehijo := Trim(nombrepadre) + ' ' + Trim(presentacion);
+end;
+
+// Calcula el costo detallado (costo por unidad)
+function TformPresentaciones.CalcularCostoDetallado: Double;
+begin
+  if capacidadBulto = 0 then
+  begin
+    raise Exception.Create('Error: La capacidad del bulto no puede ser cero');
+  end;
+
+  costoDetallado := costoBulto / capacidadBulto;
+  Result := costoDetallado;
+end;
+
+// Calcula el costo de presentación
+function TformPresentaciones.CalcularCostoPresentacion: Double;
+begin
+  costoPresentacion := costoDetallado * cantidadPresentacion;
+  Result := costoPresentacion;
+end;
+
+// Calcula el precio de presentación con utilidad lineal
+function TformPresentaciones.CalcularPrecioPresentacion: Double;
+begin
+  // Utilidad lineal: precio = costo * (1 + utilidad/100)
+  precioPresentacion := costoPresentacion * (1 + utilidadPresentacion / 100);
+  Result := precioPresentacion;
+end;
+
+// Calcula el precio sin IVA
+function TformPresentaciones.CalcularPrecioSinIVA(TasaIVA: Double = 16.0): Double;
+begin
+  precioPresenacionSInIVA := precioPresentacion / (1 + TasaIVA / 100);
+  Result := precioPresenacionSInIVA;
+end;
+
+// Calcula el valor del IVA
+function TformPresentaciones.CalcularIVA(TasaIVA: Double = 16.0): Double;
+begin
+  ivaPresentacion := precioPresenacionSInIVA * (TasaIVA / 100);
+  Result := ivaPresentacion;
+end;
+
+// Procesa todos los cálculos en secuencia
+procedure TformPresentaciones.ProcesarTodosLosCalculos(TasaIVA: Double = 16.0);
+begin
+  try
+    // Validaciones básicas
+    if Trim(nombrepadre) = '' then
+      raise Exception.Create('Error: El nombre padre no puede estar vacío');
+
+    if Trim(presentacion) = '' then
+      raise Exception.Create('Error: La presentación no puede estar vacía');
+
+    if capacidadBulto <= 0 then
+      raise Exception.Create('Error: La capacidad del bulto debe ser mayor a cero');
+
+    if costoBulto <= 0 then
+      raise Exception.Create('Error: El costo del bulto debe ser mayor a cero');
+
+    if cantidadPresentacion <= 0 then
+      raise Exception.Create('Error: La cantidad de presentación debe ser mayor a cero');
+
+    // Realizar todos los cálculos en orden
+    GenerarNombreHijo;
+    CalcularCostoDetallado;
+    CalcularCostoPresentacion;
+    CalcularPrecioPresentacion;
+    CalcularPrecioSinIVA(TasaIVA);
+    CalcularIVA(TasaIVA);
+
+  except
+    on E: Exception do
+    begin
+      ShowMessage('Error en los cálculos: ' + E.Message);
+      raise;
+    end;
+  end;
+end;
+
+// Muestra los resultados en un mensaje
+procedure TformPresentaciones.MostrarResultados;
+var
+  Mensaje: string;
+begin
+  Mensaje := '=== RESULTADO DEL PRODUCTO ===' + sLineBreak +
+             'Código Padre: ' + codigoPadre + sLineBreak +
+             'Nombre Padre: ' + nombrepadre + sLineBreak +
+             'Presentación: ' + presentacion + sLineBreak +
+             'Nombre Hijo: ' + nombrehijo + sLineBreak +
+             'Factor: ' + CurrToStr(miFactor) + sLineBreak +
+             'Capacidad Bulto: ' + FloatToStr(capacidadBulto) + sLineBreak +
+             'Costo Bulto: $' + FormatFloat('#,##0.00', costoBulto) + sLineBreak +
+             'Costo Detallado: $' + FormatFloat('#,##0.0000', costoDetallado) + sLineBreak +
+             'Costo Presentación: $' + FormatFloat('#,##0.00', costoPresentacion) + sLineBreak +
+             'Cantidad Presentación: ' + FloatToStr(cantidadPresentacion) + sLineBreak +
+             'Utilidad Presentación: ' + FloatToStr(utilidadPresentacion) + '%' + sLineBreak +
+             'Precio Sin IVA: $' + FormatFloat('#,##0.00', precioPresenacionSInIVA) + sLineBreak +
+             'IVA: $' + FormatFloat('#,##0.00', ivaPresentacion) + sLineBreak +
+             'Precio Final: $' + FormatFloat('#,##0.00', precioPresentacion);
+
+  ShowMessage(Mensaje);
+end;
+
+// Limpia todas las variables
+procedure TformPresentaciones.LimpiarVariables;
+begin
+  codigoPadre := '';
+  nombrepadre := '';
+  presentacion := '';
+  nombrehijo := '';
+  miFactor := 0;
+  capacidadBulto := 0;
+  costoBulto := 0;
+  costoDetallado := 0;
+  costoPresentacion := 0;
+  cantidadPresentacion := 0;
+  utilidadPresentacion := 0;
+  precioPresenacionSInIVA := 0;
+  ivaPresentacion := 0;
+  precioPresentacion := 0;
+end;
+
+end.

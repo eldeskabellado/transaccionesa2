@@ -1,0 +1,91 @@
+object FormBuscarProveedor: TFormBuscarProveedor
+  Left = 0
+  Top = 0
+  Caption = 'FormBuscarProveedor'
+  ClientHeight = 360
+  ClientWidth = 379
+  Color = clWhite
+  Font.Charset = DEFAULT_CHARSET
+  Font.Color = clWindowText
+  Font.Height = -11
+  Font.Name = 'Tahoma'
+  Font.Style = []
+  OldCreateOrder = False
+  OnShow = FormShow
+  PixelsPerInch = 96
+  TextHeight = 13
+  object DBGrid1: TDBGrid
+    Left = 8
+    Top = 43
+    Width = 361
+    Height = 309
+    DataSource = dsqproveedores
+    TabOrder = 0
+    TitleFont.Charset = DEFAULT_CHARSET
+    TitleFont.Color = clWindowText
+    TitleFont.Height = -11
+    TitleFont.Name = 'Tahoma'
+    TitleFont.Style = []
+    Columns = <
+      item
+        Expanded = False
+        FieldName = 'FTI_DOCUMENTO'
+        Title.Caption = 'CODIGO'
+        Width = 76
+        Visible = True
+      end
+      item
+        Expanded = False
+        FieldName = 'FTI_RESPONSABLE'
+        Title.Caption = 'PROVEEDOR'
+        Width = 249
+        Visible = True
+      end>
+  end
+  object Button1: TButton
+    Left = 271
+    Top = 8
+    Width = 92
+    Height = 31
+    Caption = 'Buscar Proveedor'
+    TabOrder = 1
+  end
+  object edtProveedor: TEdit
+    Left = 8
+    Top = 8
+    Width = 257
+    Height = 31
+    Font.Charset = DEFAULT_CHARSET
+    Font.Color = clWindowText
+    Font.Height = -19
+    Font.Name = 'Tahoma'
+    Font.Style = []
+    ParentFont = False
+    TabOrder = 2
+    Text = 'edtProveedor'
+  end
+  object sqproveedor: TDBISAMQuery
+    DatabaseName = 'data2'
+    EngineVersion = '4.49 Build 4'
+    SQL.Strings = (
+      'SELECT * FROM sproveedor'
+      'WHERE FP_DESCRIPCION LIKE :proveedor')
+    Params = <
+      item
+        DataType = ftUnknown
+        Name = 'proveedor'
+      end>
+    Left = 184
+    Top = 168
+    ParamData = <
+      item
+        DataType = ftUnknown
+        Name = 'proveedor'
+      end>
+  end
+  object dsqproveedores: TDataSource
+    DataSet = sqproveedor
+    Left = 80
+    Top = 120
+  end
+end

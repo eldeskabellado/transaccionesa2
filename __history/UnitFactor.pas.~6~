@@ -1,0 +1,34 @@
+unit UnitFactor;
+
+interface
+
+uses
+  Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants, System.Classes, Vcl.Graphics,
+  Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.StdCtrls, Data.DB, dbisamtb,
+  Vcl.ComCtrls;
+
+type
+  TformCambioTasa = class(TForm)
+    lbl1: TLabel;
+    lbl2: TLabel;
+    edtTasaActual: TEdit;
+    edtNuevtasa: TEdit;
+    btn1: TButton;
+    sqTasa: TDBISAMQuery;
+    pbProceso: TProgressBar;
+    sqUpdateSinvOferta: TDBISAMQuery;
+  private
+    { Private declarations }
+  public
+    { Public declarations }
+    tasamoneda :Double;
+  end;
+
+var
+  formCambioTasa: TformCambioTasa;
+
+implementation
+
+{$R *.dfm}
+
+end.

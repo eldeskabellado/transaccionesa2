@@ -1,0 +1,523 @@
+unit UnitPresentacion;
+
+interface
+
+uses
+  Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants, System.Classes, Vcl.Graphics,
+  Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.StdCtrls, Vcl.ExtCtrls, Data.DB,
+  dbisamtb;
+
+type
+  TformPresentaciones = class(TForm)
+    pnl1: TPanel;
+    pnl2: TPanel;
+    editPresentacion: TEdit;
+    editCantidad: TEdit;
+    editUtilidad: TEdit;
+    editPrecio: TEdit;
+    editPrecioBs: TEdit;
+    editNombrePresentacion: TEdit;
+    et1: TLabel;
+    et2: TLabel;
+    et3: TLabel;
+    et4: TLabel;
+    et5: TLabel;
+    et6: TLabel;
+    btn1: TButton;
+    tOfertas: TDBISAMTable;
+    btn2: TButton;
+    procedure FormShow(Sender: TObject);
+    procedure editPresentacionExit(Sender: TObject);
+    procedure editUtilidadExit(Sender: TObject);
+    procedure editCantidadExit(Sender: TObject);
+    procedure btn1Click(Sender: TObject);
+    procedure FormDblClick(Sender: TObject);
+    procedure btn2Click(Sender: TObject);
+  private
+    { Private declarations }
+     procedure GuardarOferta;
+  procedure LimpiarFormulario;
+  public
+    { Public declarations }
+    codigoPadre,
+    nombrepadre,
+    presentacion,
+    nombrehijo: string;
+    tipoPresentacion:Integer;
+    miFactor: Currency;
+    capacidadBulto: Double;
+    costoBulto: Double;
+    costoDetallado: Double;
+    costoPresentacion: Double;
+    cantidadPresentacion: Double;
+    utilidadPresentacion: Double;
+    precioPresenacionSInIVA: Double;
+    ivaPresentacion: Double;
+    precioPresentacion: Double;
+    accion:Integer;
+
+    // Métodos para los cálculos - DEBEN ESTAR DENTRO DE LA CLASE
+    procedure GenerarNombreHijo;
+    function CalcularCostoDetallado: Double;
+    function CalcularCostoPresentacion: Double;
+    function CalcularPrecioPresentacion: Double;
+    function CalcularPrecioSinIVA(TasaIVA: Double = 16.0): Double;
+    function CalcularIVA(TasaIVA: Double = 16.0): Double;
+    procedure ProcesarTodosLosCalculos(TasaIVA: Double = 16.0);
+    procedure MostrarResultados;
+    procedure LimpiarVariables;
+  end;
+
+var
+  formPresentaciones: TformPresentaciones;
+
+implementation
+
+uses
+  UnitDatos;
+
+{$R *.dfm}
+
+// Genera el nombre hijo concatenando nombre padre + presentación
+procedure TformPresentaciones.GenerarNombreHijo;
+begin
+  nombrehijo := Trim(nombrepadre) + ' ' + Trim(presentacion);
+end;
+
+// Calcula el costo detallado (costo por unidad)
+procedure TformPresentaciones.btn1Click(Sender: TObject);
+begin
+      // Primero verificar que se hayan hecho todos los cálculos
+  if precioPresentacion <= 0 then
+  begin
+    ShowMessage('Debe calcular primero el precio. Verifique la utilidad.');
+
+
+  end;
+
+  // Llamar al procedimiento de guardado
+  GuardarOferta;
+  ModalResult := mrOk;
+end;
+
+procedure TformPresentaciones.btn2Click(Sender: TObject);
+var
+  info: string;
+begin
+  info := '=== INFORMACIÓN DE DEBUG ===' + sLineBreak +
+          'Código Padre: "' + codigoPadre + '"' + sLineBreak +
+          'Nombre Padre: "' + nombrepadre + '"' + sLineBreak +
+          'Nombre Hijo: "' + nombrehijo + '"' + sLineBreak +
+          'Costo Bulto: $' + FloatToStr(costoBulto) + sLineBreak +
+          'Capacidad Bulto: ' + FloatToStr(capacidadBulto) + sLineBreak +
+          'Factor Cambio: ' + FloatToStr(miFactor) + sLineBreak +
+          'Cantidad Presentación: ' + FloatToStr(cantidadPresentacion) + sLineBreak +
+          'Utilidad Presentación: ' + FloatToStr(utilidadPresentacion) + '%' + sLineBreak +
+          'Costo Detallado: $' + FloatToStr(costoDetallado) + sLineBreak +
+          'Costo Presentación: $' + FloatToStr(costoPresentacion) + sLineBreak +
+          'Precio Presentación: $' + FloatToStr(precioPresentacion) + sLineBreak +
+          '========================';
+
+  ShowMessage(info);
+end;
+
+function TformPresentaciones.CalcularCostoDetallado: Double;
+begin
+  if capacidadBulto = 0 then
+  begin
+    raise Exception.Create('Error: La capacidad del bulto no puede ser cero');
+  end;
+
+  costoDetallado := costoBulto / capacidadBulto;
+  Result := costoDetallado;
+end;
+
+// Calcula el costo de presentación
+function TformPresentaciones.CalcularCostoPresentacion: Double;
+begin
+  costoPresentacion := costoDetallado * cantidadPresentacion;
+  Result := costoPresentacion;
+end;
+
+// Calcula el precio de presentación con utilidad lineal
+function TformPresentaciones.CalcularPrecioPresentacion: Double;
+begin
+  // Utilidad lineal: precio = costo * (1 + utilidad/100)
+  precioPresentacion := costoPresentacion * (1 + utilidadPresentacion / 100);
+  Result := precioPresentacion;
+end;
+
+// Calcula el precio sin IVA
+function TformPresentaciones.CalcularPrecioSinIVA(TasaIVA: Double = 16.0): Double;
+begin
+  precioPresenacionSInIVA := precioPresentacion / (1 + TasaIVA / 100);
+  Result := precioPresenacionSInIVA;
+end;
+
+procedure TformPresentaciones.editCantidadExit(Sender: TObject);
+begin
+  try
+    // Obtener la cantidad del campo
+    cantidadPresentacion := StrToFloatDef(editCantidad.Text, 0);
+
+    // Si ya hay una utilidad definida, recalcular automáticamente
+    if (utilidadPresentacion > 0) and (cantidadPresentacion > 0) then
+    begin
+      editUtilidadExit(Sender); // Llamar al cálculo completo
+    end;
+
+  except
+    on E: Exception do
+    begin
+      ShowMessage('Error: Cantidad no válida');
+      editCantidad.SetFocus;
+    end;
+  end;
+end;
+procedure TformPresentaciones.editPresentacionExit(Sender: TObject);
+begin
+nombrehijo:=nombrepadre + ' ' + editPresentacion.Text;
+editNombrePresentacion.Text:=nombrehijo;
+end;
+
+procedure TformPresentaciones.editUtilidadExit(Sender: TObject);
+var
+  precioDolares, precioBolivares: Double;
+begin
+  try
+    // Validar que tenemos todos los datos necesarios
+    if capacidadBulto = 0 then
+    begin
+      ShowMessage('Error: La capacidad del bulto no puede ser cero');
+      editUtilidad.SetFocus;
+      Exit;
+    end;
+
+    if costoBulto = 0 then
+    begin
+      ShowMessage('Error: El costo del bulto no puede ser cero');
+      editUtilidad.SetFocus;
+      Exit;
+    end;
+
+    if cantidadPresentacion = 0 then
+    begin
+      ShowMessage('Error: Debe ingresar una cantidad válida');
+      editCantidad.SetFocus;
+      Exit;
+    end;
+
+    // Obtener la utilidad del campo
+    utilidadPresentacion := StrToFloatDef(editUtilidad.Text, 0);
+
+    // 1. Calcular el costo detallado (costo por unidad)
+    costoDetallado := costoBulto / capacidadBulto;
+
+    // 2. Calcular el costo de la presentación (costo detallado * cantidad)
+    costoPresentacion := costoDetallado * cantidadPresentacion;
+
+    // 3. Calcular el precio con utilidad (precio en dólares)
+    precioDolares := costoPresentacion * (1 + utilidadPresentacion / 100);
+
+    // 4. Mostrar el precio en dólares
+    editPrecio.Text := FormatFloat('#,##0.00', precioDolares);
+
+    // 5. Calcular el precio en bolívares usando el factor
+    if miFactor > 0 then
+    begin
+      precioBolivares := precioDolares * miFactor;
+      editPrecioBs.Text := FormatFloat('#,##0.00', precioBolivares);
+    end
+    else
+    begin
+      editPrecioBs.Text := '0,00';
+    end;
+
+    // Guardar el precio calculado en la variable global
+    precioPresentacion := precioDolares;
+
+  except
+    on E: Exception do
+    begin
+      ShowMessage('Error en el cálculo: ' + E.Message);
+      editUtilidad.SetFocus;
+    end;
+  end;
+end;
+
+procedure TformPresentaciones.FormDblClick(Sender: TObject);
+var
+  info: string;
+begin
+  info := '=== INFORMACIÓN DE DEBUG ===' + sLineBreak +
+          'Código Padre: "' + codigoPadre + '"' + sLineBreak +
+          'Nombre Padre: "' + nombrepadre + '"' + sLineBreak +
+          'Nombre Hijo: "' + nombrehijo + '"' + sLineBreak +
+          'Costo Bulto: $' + FloatToStr(costoBulto) + sLineBreak +
+          'Capacidad Bulto: ' + FloatToStr(capacidadBulto) + sLineBreak +
+          'Factor Cambio: ' + FloatToStr(miFactor) + sLineBreak +
+          'Cantidad Presentación: ' + FloatToStr(cantidadPresentacion) + sLineBreak +
+          'Utilidad Presentación: ' + FloatToStr(utilidadPresentacion) + '%' + sLineBreak +
+          'Costo Detallado: $' + FloatToStr(costoDetallado) + sLineBreak +
+          'Costo Presentación: $' + FloatToStr(costoPresentacion) + sLineBreak +
+          'Precio Presentación: $' + FloatToStr(precioPresentacion) + sLineBreak +
+          '========================';
+
+  ShowMessage(info);
+end;
+
+procedure TformPresentaciones.FormShow(Sender: TObject);
+begin
+  // Limpiar los campos
+  editPresentacion.Clear;
+  editNombrePresentacion.Clear;
+  editPrecioBs.Text := '0,00';
+  editPrecio.Text := '0,00';
+  editCantidad.Text := '1'; // Valor por defecto
+  editUtilidad.Text := '0';
+
+  // Asegurar que las variables estén inicializadas
+  cantidadPresentacion := 1; // Valor por defecto
+  utilidadPresentacion := 0;
+
+  // Si miFactor no está definido, puedes asignar un valor por defecto
+  // o dejarlo en 0 para que el usuario lo defina
+  if miFactor = 0 then
+  begin
+    // Aquí puedes asignar un factor por defecto o dejarlo en 0
+    // miFactor := 36.50; // Ejemplo de tasa de cambio
+  end;
+
+  // Generar nombre inicial
+  if Trim(nombrepadre) <> '' then
+  begin
+    nombrehijo := nombrepadre + ' ' + editPresentacion.Text;
+    editNombrePresentacion.Text := nombrehijo;
+  end;
+
+  // Dar foco al primer campo
+  editPresentacion.SetFocus;
+end;
+
+// Calcula el valor del IVA
+function TformPresentaciones.CalcularIVA(TasaIVA: Double = 16.0): Double;
+begin
+  ivaPresentacion := precioPresenacionSInIVA * (TasaIVA / 100);
+  Result := ivaPresentacion;
+end;
+
+// Procesa todos los cálculos en secuencia
+procedure TformPresentaciones.ProcesarTodosLosCalculos(TasaIVA: Double = 16.0);
+begin
+  try
+    // Validaciones básicas
+    if Trim(nombrepadre) = '' then
+      raise Exception.Create('Error: El nombre padre no puede estar vacío');
+
+    if Trim(presentacion) = '' then
+      raise Exception.Create('Error: La presentación no puede estar vacía');
+
+    if capacidadBulto <= 0 then
+      raise Exception.Create('Error: La capacidad del bulto debe ser mayor a cero');
+
+    if costoBulto <= 0 then
+      raise Exception.Create('Error: El costo del bulto debe ser mayor a cero');
+
+    if cantidadPresentacion <= 0 then
+      raise Exception.Create('Error: La cantidad de presentación debe ser mayor a cero');
+
+    // Realizar todos los cálculos en orden
+    GenerarNombreHijo;
+    CalcularCostoDetallado;
+    CalcularCostoPresentacion;
+    CalcularPrecioPresentacion;
+    CalcularPrecioSinIVA(TasaIVA);
+    CalcularIVA(TasaIVA);
+
+  except
+    on E: Exception do
+    begin
+      ShowMessage('Error en los cálculos: ' + E.Message);
+      raise;
+    end;
+  end;
+end;
+
+// Muestra los resultados en un mensaje
+procedure TformPresentaciones.MostrarResultados;
+var
+  Mensaje: string;
+begin
+  Mensaje := '=== RESULTADO DEL PRODUCTO ===' + sLineBreak +
+             'Código Padre: ' + codigoPadre + sLineBreak +
+             'Nombre Padre: ' + nombrepadre + sLineBreak +
+             'Presentación: ' + presentacion + sLineBreak +
+             'Nombre Hijo: ' + nombrehijo + sLineBreak +
+             'Factor: ' + CurrToStr(miFactor) + sLineBreak +
+             'Capacidad Bulto: ' + FloatToStr(capacidadBulto) + sLineBreak +
+             'Costo Bulto: $' + FormatFloat('#,##0.00', costoBulto) + sLineBreak +
+             'Costo Detallado: $' + FormatFloat('#,##0.0000', costoDetallado) + sLineBreak +
+             'Costo Presentación: $' + FormatFloat('#,##0.00', costoPresentacion) + sLineBreak +
+             'Cantidad Presentación: ' + FloatToStr(cantidadPresentacion) + sLineBreak +
+             'Utilidad Presentación: ' + FloatToStr(utilidadPresentacion) + '%' + sLineBreak +
+             'Precio Sin IVA: $' + FormatFloat('#,##0.00', precioPresenacionSInIVA) + sLineBreak +
+             'IVA: $' + FormatFloat('#,##0.00', ivaPresentacion) + sLineBreak +
+             'Precio Final: $' + FormatFloat('#,##0.00', precioPresentacion);
+
+  ShowMessage(Mensaje);
+end;
+
+// Limpia todas las variables
+procedure TformPresentaciones.LimpiarVariables;
+begin
+  codigoPadre := '';
+  nombrepadre := '';
+  presentacion := '';
+  nombrehijo := '';
+  miFactor := 0;
+  capacidadBulto := 0;
+  costoBulto := 0;
+  costoDetallado := 0;
+  costoPresentacion := 0;
+  cantidadPresentacion := 0;
+  utilidadPresentacion := 0;
+  precioPresenacionSInIVA := 0;
+  ivaPresentacion := 0;
+  precioPresentacion := 0;
+end;
+
+procedure TformPresentaciones.GuardarOferta;
+var
+  precioTotalBolivares, precioSinIVA, montoIVA: Double;
+begin
+  try
+    // Validaciones previas
+    if capacidadBulto = 1 then
+    begin
+      tipoPresentacion:=0;
+    end
+    else
+    begin
+      tipoPresentacion:=1;
+    end;
+
+    if Trim(codigoPadre) = '' then
+    begin
+      ShowMessage('Error: Debe especificar el código padre');
+      Exit;
+    end;
+
+    if Trim(nombrehijo) = '' then
+    begin
+      ShowMessage('Error: Debe especificar el nombre del producto');
+      Exit;
+    end;
+
+    if precioPresentacion <= 0 then
+    begin
+      ShowMessage('Error: Debe calcular primero el precio del producto. Precio actual: ' + FloatToStr(precioPresentacion));
+      Exit;
+    end;
+
+    if miFactor <= 0 then
+    begin
+      ShowMessage('Error: Debe especificar el factor de cambio. Factor actual: ' + FloatToStr(miFactor));
+      Exit;
+    end;
+
+    if cantidadPresentacion <= 0 then
+    begin
+      ShowMessage('Error: Debe especificar la cantidad de presentación. Cantidad actual: ' + FloatToStr(cantidadPresentacion));
+      Exit;
+    end;
+
+    // Calcular precios en bolívares
+    precioTotalBolivares := (precioPresentacion * miFactor) * 1.16;
+    precioSinIVA := precioTotalBolivares / 1.16;
+    montoIVA := precioTotalBolivares - precioSinIVA;
+
+    // Verificar si el objeto tOfertas existe
+    if not Assigned(tOfertas) then
+    begin
+      ShowMessage('Error: El objeto tOfertas no está asignado');
+      Exit;
+    end;
+
+    // Verificar si la tabla está abierta
+    if not tOfertas.Active then
+      tOfertas.Open;
+
+    // Crear nuevo registro
+    tOfertas.Insert;
+
+    // Asignar valores a TODOS los campos
+    try
+      tOfertas.FieldByName('FO_PRODUCTO').AsString := codigoPadre;
+      tOfertas.FieldByName('FO_DESCRIPCION').AsString := nombrehijo;
+      tOfertas.FieldByName('FO_PRECIODESC').AsFloat := precioSinIVA;
+      tOfertas.FieldByName('FO_MTOIMPUESTO1').AsFloat := montoIVA;
+      tOfertas.FieldByName('FO_MTOTOTAL').AsFloat := precioTotalBolivares;
+      tOfertas.FieldByName('FO_UNDDESCARGA').AsFloat := cantidadPresentacion;
+      tOfertas.FieldByName('FO_TIPO').AsInteger := 8;
+      tOfertas.FieldByName('FO_TIPOPRECIO').AsInteger := 1;
+      tOfertas.FieldByName('FO_SOURCEIMP1').AsFloat := 16;
+      tOfertas.FieldByName('FO_UNICOPUNTOVENTA').AsBoolean := False;
+      tOfertas.FieldByName('FO_UNICAOFERTAPRESENTACION').AsBoolean := False;
+      tOfertas.FieldByName('FO_VISIBLE').AsBoolean := True;
+      tOfertas.FieldByName('FO_STATUS').AsBoolean := True;
+      tOfertas.FieldByName('FO_TIPOOFERTA').AsInteger:=tipoPresentacion;
+
+
+    except
+      on E: Exception do
+      begin
+        ShowMessage('Error asignando campo: ' + E.Message);
+        tOfertas.Cancel;
+        Exit;
+      end;
+    end;
+
+    // Guardar el registro
+    tOfertas.Post;
+
+    // Mensaje de confirmación
+    ShowMessage('Oferta guardada exitosamente:' + sLineBreak +
+                'Producto: ' + codigoPadre + sLineBreak +
+                'Descripción: ' + nombrehijo + sLineBreak +
+                'Precio sin IVA: Bs. ' + FormatFloat('#,##0.00', precioSinIVA) + sLineBreak +
+                'Monto IVA: Bs. ' + FormatFloat('#,##0.00', montoIVA) + sLineBreak +
+                'Precio Total: Bs. ' + FormatFloat('#,##0.00', precioTotalBolivares));
+
+  except
+    on E: Exception do
+    begin
+      // Si hay error, cancelar la operación
+      if Assigned(tOfertas) and (tOfertas.State in [dsEdit, dsInsert]) then
+      begin
+        ShowMessage('Cancelando operación...');
+        tOfertas.Cancel;
+      end;
+
+      ShowMessage('Error al guardar la oferta: ' + E.Message);
+    end;
+  end;
+end;
+
+// Procedimiento opcional para limpiar el formulario
+procedure TformPresentaciones.LimpiarFormulario;
+begin
+  editPresentacion.Clear;
+  editNombrePresentacion.Clear;
+  editCantidad.Text := '1';
+  editUtilidad.Text := '0';
+  editPrecio.Text := '0,00';
+  editPrecioBs.Text := '0,00';
+
+  LimpiarVariables;
+
+  editPresentacion.SetFocus;
+end;
+
+
+
+end.

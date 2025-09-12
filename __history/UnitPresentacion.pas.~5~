@@ -1,0 +1,39 @@
+unit UnitPresentacion;
+
+interface
+
+uses
+  Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants, System.Classes, Vcl.Graphics,
+  Vcl.Controls, Vcl.Forms, Vcl.Dialogs;
+
+type
+  TformPresentaciones = class(TForm)
+  private
+    { Private declarations }
+  public
+    { Public declarations }
+    codigoPadre,
+    nombrepadre,
+    presentacion,
+    nombrehijo: string;
+    miFactor: Currency;
+    capacidadBulto:Double;
+    costoBulto:Double;
+    costoDetallado:Double;
+    costoPresentacion:Double;
+    cantidadPresentacion:Double;
+    utilidadPresentacion:Double;
+    precioPresenacionSInIVA:Double;
+    ivaPresentacion:Double;
+    precioPresentacion:Double;
+
+  end;
+
+var
+  formPresentaciones: TformPresentaciones;
+
+implementation
+
+{$R *.dfm}
+
+end.

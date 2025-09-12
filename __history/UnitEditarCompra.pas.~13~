@@ -1,0 +1,117 @@
+unit UnitEditarCompra;
+
+interface
+
+uses
+  Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants, System.Classes, Vcl.Graphics,
+  Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.Buttons, Vcl.ComCtrls, Vcl.StdCtrls,
+  Data.DB, dbisamtb;
+
+type
+  TFormEditarCompra = class(TForm)
+    lbl3: TLabel;
+    edtCLIENTE: TEdit;
+    dtconteo: TDateTimePicker;
+    lbl2: TLabel;
+    lbl1: TLabel;
+    edtFactura: TEdit;
+    lbl5: TLabel;
+    edtmonto: TEdit;
+    btn1: TSpeedButton;
+    CheckBox1: TCheckBox;
+    Button1: TButton;
+    Button2: TButton;
+    EdtNuevoProveedor: TEdit;
+    Button3: TButton;
+    sqfacturas: TDBISAMQuery;
+    procedure Button1Click(Sender: TObject);
+    procedure Button2Click(Sender: TObject);
+    procedure FormShow(Sender: TObject);
+    procedure Button3Click(Sender: TObject);
+  private
+    { Private declarations }
+  public
+    { Public declarations }
+    codProveedor:string;
+    codProveedorNuevo:string;
+  end;
+
+var
+  FormEditarCompra: TFormEditarCompra;
+
+implementation
+
+{$R *.dfm}
+
+uses UnitProveedor, UnitVerCompras;
+
+procedure TFormEditarCompra.Button1Click(Sender: TObject);
+begin
+//buscamos el proveedor
+FormBuscarProveedor:= TFormBuscarProveedor.Create(Application);
+      try
+          with FormBuscarProveedor do
+          begin
+          Caption:= 'SELECCIONES LA FACTURA A DESPACHAR';
+          ShowModal;
+          end;
+
+      finally
+       codProveedor:=FormBuscarProveedor.codigoProveedor;
+        edtCLIENTE.Text:=FormBuscarProveedor.nombreProveedor;
+
+       FormBuscarProveedor.Free;
+
+      end;
+end;
+
+procedure TFormEditarCompra.Button2Click(Sender: TObject);
+begin
+//buscamos la factura
+FormVerCompras:= TFormVerCompras.Create(Application);
+      try
+          with FormVerCompras do
+          begin
+          Caption:= 'SELECCIONES LA FACTURA A DESPACHAR';
+          codigoProveedor:=codproveedor;
+          ShowModal;
+          end;
+
+      finally
+
+       edtfactura.Text:=formvercompras.numeroFactura;
+
+       FormVerCompras.Free;
+
+      end;
+end;
+
+procedure TFormEditarCompra.Button3Click(Sender: TObject);
+begin
+FormBuscarProveedor:= TFormBuscarProveedor.Create(Application);
+      try
+          with FormBuscarProveedor do
+          begin
+          Caption:= 'SELECCIONES LA FACTURA A DESPACHAR';
+          ShowModal;
+          end;
+
+      finally
+       codProveedorNuevo:=FormBuscarProveedor.codigoProveedor;
+        edtnuevoproveedor.Text:=FormBuscarProveedor.nombreProveedor;
+
+       FormBuscarProveedor.Free;
+
+      end;
+end;
+
+procedure TFormEditarCompra.FormShow(Sender: TObject);
+begin
+codProveedor:='';
+edtCLIENTE.Clear;
+edtFactura.Clear;
+edtmonto.text:='0,00';
+dtconteo.Date:=now;
+end;
+
+end.

@@ -64,8 +64,8 @@ object FormVerFactura: TFormVerFactura
     Top = 8
     Width = 186
     Height = 21
-    Date = 45020.347325833330000000
-    Time = 45020.347325833330000000
+    Date = 45020.000000000000000000
+    Time = 0.347325833332433800
     TabOrder = 1
   end
   object Button1: TButton
@@ -79,7 +79,7 @@ object FormVerFactura: TFormVerFactura
   end
   object sqfacturas: TDBISAMQuery
     DatabaseName = 'data2'
-    EngineVersion = '4.43 Build 1'
+    EngineVersion = '4.49 Build 4'
     SQL.Strings = (
       'SELECT * FROM SOPERACIONINV'
       
@@ -114,7 +114,7 @@ object FormVerFactura: TFormVerFactura
   end
   object sqscim: TDBISAMQuery
     DatabaseName = 'data2'
-    EngineVersion = '4.43 Build 1'
+    EngineVersion = '4.49 Build 4'
     SQL.Strings = (
       'SELECT * FROM SAUTORIZADOS'
       

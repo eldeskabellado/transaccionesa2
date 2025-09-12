@@ -26,7 +26,9 @@ uses
   UnitELiminar in 'UnitELiminar.pas' {formEliminar},
   UnitLicores in 'UnitLicores.pas' {formLicores},
   UnitClave in 'UnitClave.pas' {formClave},
-  UnitpProductosVendidos in 'UnitpProductosVendidos.pas' {formProductosVendidos};
+  UnitpProductosVendidos in 'UnitpProductosVendidos.pas' {formProductosVendidos},
+  UnitiCompras in 'UnitiCompras.pas' {formiCompras},
+  UnitVariablesGlobales in 'UnitVariablesGlobales.pas';
 
 {$R *.res}
 
@@ -37,10 +39,10 @@ begin
   Application.CreateForm(TForm2, Form2);
   Application.CreateForm(Td, d);
   Application.CreateForm(TformProductosVendidos, formProductosVendidos);
+  Application.CreateForm(TformiCompras, formiCompras);
   if TformAcceso.Execute then
   begin
-    Application.Initialize;
-    Application.CreateForm(Tform2, form2);
+
     Application.Run;
   end
   else

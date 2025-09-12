@@ -1,0 +1,51 @@
+unit UnitVerCompras;
+
+interface
+
+uses
+  Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants, System.Classes, Vcl.Graphics,
+  Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Data.DB, Vcl.Grids, Vcl.DBGrids,
+  dbisamtb;
+
+type
+  TFormVerCompras = class(TForm)
+    sqfacturas: TDBISAMQuery;
+    dsqfacturas: TDataSource;
+    DBGrid1: TDBGrid;
+    procedure FormShow(Sender: TObject);
+    procedure DBGrid1DblClick(Sender: TObject);
+  private
+    { Private declarations }
+  public
+    { Public declarations }
+    codigoProveedor,
+    numeroFactura:string;
+  end;
+
+var
+  FormVerCompras: TFormVerCompras;
+
+implementation
+
+{$R *.dfm}
+
+uses UnitDatos;
+
+procedure TFormVerCompras.DBGrid1DblClick(Sender: TObject);
+begin
+numerofactura:=sqfacturas.FieldByName('FTI_RESPONSABLE').AsString;
+close;
+end;
+
+procedure TFormVerCompras.FormShow(Sender: TObject);
+begin
+  with sqfacturas do
+  begin
+    close;
+     Parambyname('proveedor').AsString:=codigoproveedor;
+    Parambyname('Ttipo').AsInteger:=11;
+    Open;
+  end;
+end;
+
+end.

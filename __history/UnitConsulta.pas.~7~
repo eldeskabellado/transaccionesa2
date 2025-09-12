@@ -1,0 +1,42 @@
+unit UnitConsulta;
+
+interface
+
+uses
+  Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants, System.Classes, Vcl.Graphics,
+  Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.Buttons, Vcl.StdCtrls, Data.DB,
+  Vcl.Grids, Vcl.DBGrids, dbisamtb;
+
+type
+  TformConsulta = class(TForm)
+    lblCodigo: TLabel;
+    editCodigo: TEdit;
+    btn2: TSpeedButton;
+    lblPrecioDivisas1: TLabel;
+    editPrecioDivisasConIva: TEdit;
+    lblPrecio: TLabel;
+    editPrecio: TEdit;
+    DBGrid1: TDBGrid;
+    SQBuscarPresentacion: TDBISAMQuery;
+    SQBuscar: TDBISAMQuery;
+  private
+    { Private declarations }
+  public
+    { Public declarations }
+    miIVASeleccionado: Currency;
+    miCostoSeleccionado: Currency;
+    miCostoBs: Currency;
+    miPrecioSeleccionado: Currency;
+    miPrecioBs: Currency;
+    miPrecioDivisasSeleccionado: Currency;
+    miFactor:Currency;
+  end;
+
+var
+  formConsulta: TformConsulta;
+
+implementation
+
+{$R *.dfm}
+
+end.

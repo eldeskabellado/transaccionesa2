@@ -1,0 +1,420 @@
+unit UnitFactor;
+
+interface
+
+uses
+  Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants, System.Classes,
+  System.UITypes, Vcl.Graphics, Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.StdCtrls,
+  Data.DB, dbisamtb, Vcl.ComCtrls;
+
+type
+  // Thread para actualizar los precios
+  TActualizarPreciosThread = class(TThread)
+  private
+    FTasaActual: Double;
+    FNuevaTasa: Double;
+    FProgressBar: TProgressBar;
+    FOnProgress: TNotifyEvent;
+    FOnFinished: TNotifyEvent;
+    FOnError: TNotifyEvent;
+    FErrorMessage: string;
+    FTotalRegistros: Integer;
+    FRegistrosProcesados: Integer;
+    procedure UpdateProgress;
+    procedure NotifyFinished;
+    procedure NotifyError;
+  protected
+    procedure Execute; override;
+  public
+    constructor Create(ATasaActual, ANuevaTasa: Double; AProgressBar: TProgressBar);
+    property OnProgress: TNotifyEvent read FOnProgress write FOnProgress;
+    property OnFinished: TNotifyEvent read FOnFinished write FOnFinished;
+    property OnError: TNotifyEvent read FOnError write FOnError;
+    property ErrorMessage: string read FErrorMessage;
+    property TotalRegistros: Integer read FTotalRegistros;
+    property RegistrosProcesados: Integer read FRegistrosProcesados;
+  end;
+
+  TformCambioTasa = class(TForm)
+    lbl1: TLabel;
+    lbl2: TLabel;
+    edtTasaActual: TEdit;
+    edtNuevaTasa: TEdit;
+    btn1: TButton;
+    sqTasa: TDBISAMQuery;
+    pbProceso: TProgressBar;
+    sqUpdateSinvOferta: TDBISAMQuery;
+    lblEstado: TLabel;
+    btnCancelar: TButton;
+
+    procedure btn1Click(Sender: TObject);
+    procedure FormCreate(Sender: TObject);
+    procedure FormShow(Sender: TObject);
+    procedure btnCancelarClick(Sender: TObject);
+    procedure FormCloseQuery(Sender: TObject; var CanClose: Boolean);
+
+  private
+    { Private declarations }
+    FThread: TActualizarPreciosThread;
+    FProcesoEnCurso: Boolean;
+    procedure OnThreadProgress(Sender: TObject);
+    procedure OnThreadFinished(Sender: TObject);
+    procedure OnThreadError(Sender: TObject);
+    procedure InicializarFormulario;
+    procedure HabilitarControles(AHabilitar: Boolean);
+    function ValidarDatos: Boolean;
+
+  public
+    { Public declarations }
+    tasamoneda: Double;
+  end;
+
+var
+  formCambioTasa: TformCambioTasa;
+
+implementation
+
+uses UnitDatos;
+
+{$R *.dfm}
+
+// ================================
+// IMPLEMENTACIÓN DEL THREAD
+// ================================
+
+constructor TActualizarPreciosThread.Create(ATasaActual, ANuevaTasa: Double; AProgressBar: TProgressBar);
+begin
+  inherited Create(False);
+  FTasaActual := ATasaActual;
+  FNuevaTasa := ANuevaTasa;
+  FProgressBar := AProgressBar;
+  FRegistrosProcesados := 0;
+  FTotalRegistros := 0;
+  FreeOnTerminate := True;
+end;
+
+procedure TActualizarPreciosThread.UpdateProgress;
+begin
+  if Assigned(FProgressBar) then
+  begin
+    FProgressBar.Position := FRegistrosProcesados;
+    if Assigned(FOnProgress) then
+      FOnProgress(Self);
+  end;
+end;
+
+procedure TActualizarPreciosThread.NotifyFinished;
+begin
+  if Assigned(FOnFinished) then
+    FOnFinished(Self);
+end;
+
+procedure TActualizarPreciosThread.NotifyError;
+begin
+  if Assigned(FOnError) then
+    FOnError(Self);
+end;
+
+procedure TActualizarPreciosThread.Execute;
+var
+  sqConteo, sqUpdate, sqUpdateMoneda: TDBISAMQuery;
+  Factor: Double;
+begin
+  try
+    // Calcular factor de conversión
+    Factor := FNuevaTasa / FTasaActual;
+
+    // Crear queries para este thread
+    sqConteo := TDBISAMQuery.Create(nil);
+    sqUpdate := TDBISAMQuery.Create(nil);
+    sqUpdateMoneda := TDBISAMQuery.Create(nil);
+
+    try
+      // Configurar conexión (asumiendo que hay un DataModule)
+      sqConteo.DatabaseName := 'dbPrincipal'; // Ajustar según tu configuración
+      sqUpdate.DatabaseName := 'dbPrincipal';
+      sqUpdateMoneda.DatabaseName := 'dbPrincipal';
+
+      // 1. Contar total de registros a actualizar
+      sqConteo.SQL.Text := 'SELECT COUNT(*) AS TOTAL FROM sinvoferta WHERE FO_VISIBLE = TRUE';
+      sqConteo.Open;
+      FTotalRegistros := sqConteo.FieldByName('TOTAL').AsInteger;
+      sqConteo.Close;
+
+      // Sincronizar para actualizar la barra de progreso
+      Synchronize(procedure begin
+        if Assigned(FProgressBar) then
+        begin
+          FProgressBar.Min := 0;
+          FProgressBar.Max := FTotalRegistros;
+          FProgressBar.Position := 0;
+        end;
+      end);
+
+      if FTotalRegistros = 0 then
+      begin
+        FErrorMessage := 'No hay registros para actualizar en sinvoferta';
+        Synchronize(NotifyError);
+        Exit;
+      end;
+
+      // 2. Actualizar precios en sinvoferta usando el factor calculado
+      sqUpdate.SQL.Text :=
+        'UPDATE sinvoferta SET ' +
+        'FO_PRECIODESC = FO_PRECIODESC * :Factor, ' +
+        'FO_MTOIMPUESTO1 = FO_MTOIMPUESTO1 * :Factor, ' +
+        'FO_MTOIMPUESTO2 = FO_MTOIMPUESTO2 * :Factor, ' +
+        'FO_MTOTOTAL = FO_MTOTOTAL * :Factor ' +
+        'WHERE FO_VISIBLE = TRUE';
+
+      sqUpdate.ParamByName('Factor').AsFloat := Factor;
+      sqUpdate.ExecSQL;
+
+      FRegistrosProcesados := FTotalRegistros;
+      Synchronize(UpdateProgress);
+
+      // 3. Actualizar tabla de moneda
+      sqUpdateMoneda.SQL.Text :=
+        'UPDATE smoneda SET ' +
+        'FM_LASTFACTOR = :TasaActual, ' +
+        'FM_FACTOR = :NuevaTasa ' +
+        'WHERE FM_CODE = 2';
+
+      sqUpdateMoneda.ParamByName('TasaActual').AsFloat := FTasaActual;
+      sqUpdateMoneda.ParamByName('NuevaTasa').AsFloat := FNuevaTasa;
+      sqUpdateMoneda.ExecSQL;
+
+      // Proceso completado exitosamente
+      Synchronize(NotifyFinished);
+
+    finally
+      sqConteo.Free;
+      sqUpdate.Free;
+      sqUpdateMoneda.Free;
+    end;
+
+  except
+    on E: Exception do
+    begin
+      FErrorMessage := 'Error durante la actualización: ' + E.Message;
+      Synchronize(NotifyError);
+    end;
+  end;
+end;
+
+// ================================
+// IMPLEMENTACIÓN DEL FORMULARIO
+// ================================
+
+procedure TformCambioTasa.FormCreate(Sender: TObject);
+begin
+  FThread := nil;
+  FProcesoEnCurso := False;
+  InicializarFormulario;
+end;
+
+procedure TformCambioTasa.FormShow(Sender: TObject);
+begin
+  // Mostrar la tasa actual recibida del formulario padre
+  edtTasaActual.Text := FormatFloat('0.00', tasamoneda);
+  edtNuevaTasa.SetFocus;
+end;
+
+procedure TformCambioTasa.InicializarFormulario;
+begin
+  // Configurar labels
+  lbl1.Caption := 'Tasa Actual:';
+  lbl2.Caption := 'Nueva Tasa:';
+
+  // Configurar botones
+  btn1.Caption := 'Actualizar Precios';
+  btnCancelar.Caption := 'Cancelar';
+
+  // Configurar barra de progreso
+  pbProceso.Min := 0;
+  pbProceso.Max := 100;
+  pbProceso.Position := 0;
+  pbProceso.Visible := False;
+
+  // Configurar label de estado
+  lblEstado.Caption := 'Listo para actualizar precios';
+  lblEstado.Font.Color := clGreen;
+
+  // Solo lectura para tasa actual
+  edtTasaActual.ReadOnly := True;
+  edtTasaActual.Color := clBtnFace;
+
+  // Configurar el formulario
+  Caption := 'Cambio de Tasa de Moneda';
+  Position := poScreenCenter;
+end;
+
+function TformCambioTasa.ValidarDatos: Boolean;
+var
+  NuevaTasa: Double;
+begin
+  Result := False;
+
+  // Validar que se haya ingresado nueva tasa
+  if Trim(edtNuevaTasa.Text) = '' then
+  begin
+    ShowMessage('Debe ingresar la nueva tasa');
+    edtNuevaTasa.SetFocus;
+    Exit;
+  end;
+
+  // Validar que sea un número válido
+  if not TryStrToFloat(edtNuevaTasa.Text, NuevaTasa) then
+  begin
+    ShowMessage('La nueva tasa debe ser un número válido');
+    edtNuevaTasa.SetFocus;
+    Exit;
+  end;
+
+  // Validar que sea mayor que cero
+  if NuevaTasa <= 0 then
+  begin
+    ShowMessage('La nueva tasa debe ser mayor que cero');
+    edtNuevaTasa.SetFocus;
+    Exit;
+  end;
+
+  // Validar que sea diferente a la actual
+  if Abs(NuevaTasa - tasamoneda) < 0.001 then
+  begin
+    ShowMessage('La nueva tasa debe ser diferente a la actual');
+    edtNuevaTasa.SetFocus;
+    Exit;
+  end;
+
+  Result := True;
+end;
+
+procedure TformCambioTasa.HabilitarControles(AHabilitar: Boolean);
+begin
+  edtNuevaTasa.Enabled := AHabilitar;
+  btn1.Enabled := AHabilitar;
+  btnCancelar.Enabled := not AHabilitar; // Cancelar solo disponible durante proceso
+  pbProceso.Visible := not AHabilitar;
+end;
+
+procedure TformCambioTasa.btn1Click(Sender: TObject);
+var
+  NuevaTasa: Double;
+  Mensaje: string;
+begin
+  if not ValidarDatos then
+    Exit;
+
+  NuevaTasa := StrToFloat(edtNuevaTasa.Text);
+
+  // Confirmar la operación
+  Mensaje := Format('¿Está seguro de cambiar la tasa de %.2f a %.2f?' + #13#10 +
+                   'Esta operación actualizará TODOS los precios en las ofertas.' + #13#10 +
+                   'Factor de conversión: %.6f',
+                   [tasamoneda, NuevaTasa, NuevaTasa / tasamoneda]);
+
+  if MessageDlg(Mensaje, mtConfirmation, [mbYes, mbNo], 0) <> mrYes then
+    Exit;
+
+  // Iniciar proceso
+  FProcesoEnCurso := True;
+  HabilitarControles(False);
+
+  lblEstado.Caption := 'Iniciando actualización de precios...';
+  lblEstado.Font.Color := clBlue;
+
+  // Crear y ejecutar thread
+  FThread := TActualizarPreciosThread.Create(tasamoneda, NuevaTasa, pbProceso);
+  FThread.OnProgress := OnThreadProgress;
+  FThread.OnFinished := OnThreadFinished;
+  FThread.OnError := OnThreadError;
+end;
+
+procedure TformCambioTasa.btnCancelarClick(Sender: TObject);
+begin
+  if FProcesoEnCurso and Assigned(FThread) then
+  begin
+    if MessageDlg('¿Está seguro de cancelar el proceso?', mtConfirmation, [mbYes, mbNo], 0) = mrYes then
+    begin
+      FThread.Terminate;
+      FThread := nil;
+      FProcesoEnCurso := False;
+      HabilitarControles(True);
+      lblEstado.Caption := 'Proceso cancelado';
+      lblEstado.Font.Color := clRed;
+    end;
+  end
+  else
+  begin
+    Close;
+  end;
+end;
+
+procedure TformCambioTasa.FormCloseQuery(Sender: TObject; var CanClose: Boolean);
+begin
+  if FProcesoEnCurso then
+  begin
+    ShowMessage('No se puede cerrar el formulario mientras se está ejecutando la actualización');
+    CanClose := False;
+  end
+  else
+  begin
+    CanClose := True;
+  end;
+end;
+
+// ================================
+// EVENTOS DEL THREAD
+// ================================
+
+procedure TformCambioTasa.OnThreadProgress(Sender: TObject);
+var
+  Thread: TActualizarPreciosThread;
+begin
+  Thread := Sender as TActualizarPreciosThread;
+  lblEstado.Caption := Format('Actualizando precios... %d de %d registros',
+                              [Thread.RegistrosProcesados, Thread.TotalRegistros]);
+end;
+
+procedure TformCambioTasa.OnThreadFinished(Sender: TObject);
+var
+  Thread: TActualizarPreciosThread;
+begin
+  Thread := Sender as TActualizarPreciosThread;
+
+  FProcesoEnCurso := False;
+  FThread := nil;
+  HabilitarControles(True);
+
+  lblEstado.Caption := Format('¡Proceso completado! Se actualizaron %d registros', [Thread.TotalRegistros]);
+  lblEstado.Font.Color := clGreen;
+
+  // Actualizar la tasa actual mostrada
+  tasamoneda := StrToFloat(edtNuevaTasa.Text);
+  edtTasaActual.Text := FormatFloat('0.00', tasamoneda);
+  edtNuevaTasa.Text := '';
+
+  ShowMessage(Format('Actualización completada exitosamente.' + #13#10 +
+                    'Se actualizaron %d registros de ofertas.' + #13#10 +
+                    'Nueva tasa establecida: %.2f',
+                    [Thread.TotalRegistros, tasamoneda]));
+end;
+
+procedure TformCambioTasa.OnThreadError(Sender: TObject);
+var
+  Thread: TActualizarPreciosThread;
+begin
+  Thread := Sender as TActualizarPreciosThread;
+
+  FProcesoEnCurso := False;
+  FThread := nil;
+  HabilitarControles(True);
+
+  lblEstado.Caption := 'Error en la actualización';
+  lblEstado.Font.Color := clRed;
+
+  ShowMessage('Error durante la actualización: ' + Thread.ErrorMessage);
+end;
+
+end.

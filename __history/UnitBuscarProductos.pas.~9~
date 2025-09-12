@@ -1,0 +1,68 @@
+unit UnitBuscarProductos;
+
+interface
+
+uses
+  Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants, System.Classes, Vcl.Graphics,
+  Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Data.DB, Vcl.Grids, Vcl.DBGrids,
+  Vcl.ExtCtrls, Vcl.Buttons, Vcl.StdCtrls, System.UITypes, dbisamtb;
+
+type
+  TformBuscarArticulo = class(TForm)
+    pnl1: TPanel;
+    pnl2: TPanel;
+    DBGrid1: TDBGrid;
+    editProducto: TEdit;
+    btnBuscar: TSpeedButton;
+    SQBuscar: TDBISAMQuery;
+    dsBuscar: TDataSource;
+    rgBuscar: TRadioGroup;
+    procedure btnBuscarClick(Sender: TObject);
+    procedure FormShow(Sender: TObject);
+  private
+    { Private declarations }
+  public
+    { Public declarations }
+  CodigoSeleccionado: string;
+  NombreSeleccionado: string;
+  DivisasSeleccionado: string;
+  UtilidadSeleccionado: string;
+  DetalleSeleccionado: string;
+
+  // Variables decimales
+  IVASeleccionado: Currency;
+  CostoSeleccionado: Currency;
+  PrecioSeleccionado: Currency;
+  PrecioDivisasSeleccionado: Currency;
+  CapacidadSeleccionado: Double;
+  end;
+
+var
+  formBuscarArticulo: TformBuscarArticulo;
+
+implementation
+
+uses
+  UnitDatos;
+
+{$R *.dfm}
+
+procedure TformBuscarArticulo.btnBuscarClick(Sender: TObject);
+begin
+case rgBuscar.ItemIndex of
+0:begin
+   //Buscamos el articulo en  sinventario por el campo FI_CODIGO haciendo join a a2InvCostosPrecios para obtener los precios por el campo FI_CODIGO = FIC_CODEITEM
+end;
+1:begin
+   //Buscamos el articulo en  sinventario haciendo like por  el campo FI_DESCRIPCION haciendo join a a2InvCostosPrecios para obtener los precios por el campo FI_CODIGO = FIC_CODEITEM
+end;
+
+end;
+end;
+
+procedure TformBuscarArticulo.FormShow(Sender: TObject);
+begin
+editProducto.SetFocus;
+end;
+
+end.

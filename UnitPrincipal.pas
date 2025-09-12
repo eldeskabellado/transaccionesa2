@@ -5,9 +5,9 @@ interface
 uses
   Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants, System.Classes, Vcl.Graphics,
   Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.ExtCtrls, Vcl.Buttons, SYSTEM.IniFiles,
-
   Vcl.StdCtrls, UnitMD5,System.hash,cifrado, Vcl.ComCtrls, Vcl.AppEvnts,
-  frxClass, frxDBSet, frxExportBaseDialog, frxExportXLS, frxExportXLSX;
+  frxClass, frxDBSet, frxExportBaseDialog, frxExportXLS, frxExportXLSX,
+  Vcl.Menus;
 
 type
   TForm2 = class(TForm)
@@ -21,7 +21,6 @@ type
     mmo1: TMemo;
     stat1: TStatusBar;
     ApplicationEvents1: TApplicationEvents;
-    btn3: TSpeedButton;
     btn4: TSpeedButton;
     btn5: TSpeedButton;
     btn6: TSpeedButton;
@@ -32,6 +31,12 @@ type
     btn7: TSpeedButton;
     btn8: TSpeedButton;
     btn9: TSpeedButton;
+    BitBtn1: TBitBtn;
+    MainMenu1: TMainMenu;
+    ransacciones1: TMenuItem;
+    Compras1: TMenuItem;
+    EditarCompra1: TMenuItem;
+    menEiminar: TMenuItem;
 
     procedure FormKeyDown(Sender: TObject; var Key: Word; Shift: TShiftState);
     procedure btn1Click(Sender: TObject);
@@ -45,14 +50,15 @@ type
     procedure btn7Click(Sender: TObject);
     procedure btn8Click(Sender: TObject);
     procedure btn9Click(Sender: TObject);
+    procedure EditarCompra1Click(Sender: TObject);
+    procedure BitBtn1Click(Sender: TObject);
+    procedure menEiminarClick(Sender: TObject);
   private
     { Private declarations }
   public
-
-
-       //   function LeerConfiguracion(const Section, Ident, Default: String): String; override;
+    // Quitar ActualizarInterfaz de aquí
   end;
-
+ function ObtenerTasaMoneda(CodigoMoneda: Integer = 2): Double;
 var
   Form2: TForm2;
   empresa:string;
@@ -62,16 +68,23 @@ var
   directorio_datos: string;
   lica2,
   licmia,
-
   serial,
   version:string;
 
 implementation
 
 uses
-  UnitDatos, UnitProceso, Unit_VER_FACTURA, UnitCXC, UnitEditFactura, UnitProductos, UnitEtiquetas, UnitCambiarCodigo, UnitELiminar, UnitLicores, UnitpProductosVendidos, unitvariables;
+  UnitDatos, UnitProceso, Unit_VER_FACTURA, UnitCXC, UnitEditFactura,
+  UnitProductos, UnitEtiquetas, UnitCambiarCodigo, UnitELiminar, UnitLicores,
+  UnitpProductosVendidos, unitvariables, UnitEditarCompra, UnitListaPrecios,
+  UnitVariablesGlobales, UnitiCompras, UnitFormProductos, UnitFactor, UnitImpresionCodebar, UnitConsulta;
 
 {$R *.dfm}
+
+procedure TForm2.btn3Click(Sender: TObject);
+begin
+  // Implementación vacía o funcionalidad que necesites
+end;
 function MostrarFormularioClaveSupervisor(var ClaveSupervisor: string): Boolean;
 var
   Formulario: TForm;
@@ -130,6 +143,11 @@ begin
   if Mensaje.message = WM_KEYDOWN then
      if Mensaje.wParam = VK_RETURN then
         begin
+        // Excluir formularios específicos
+        if (Screen.ActiveForm <> nil) and
+           (Screen.ActiveForm.Name = 'formBuscarArticulo') then
+           Exit;  // No hacer nada en este formulario
+
         // Poner todos los tipos de componente donde NO se quiera este efecto
         if NOT (Screen.ActiveControl is TMemo) then
               Mensaje.wParam := VK_TAB;
@@ -203,6 +221,20 @@ begin
 CambiarENTERporTAB (Msg);
 end;
 
+
+
+procedure TForm2.BitBtn1Click(Sender: TObject);
+var
+  FormLista: TFormLista;
+begin
+  FormLista := TFormLista.Create(Self);
+  try
+    FormLista.ShowModal;
+  finally
+    FormLista.Free;
+  end;
+end;
+
 procedure TForm2.btn1Click(Sender: TObject);
 begin
 FormVerfactura:= TFormVerfactura.Create(Application);
@@ -224,53 +256,17 @@ end;
 procedure TForm2.btn2Click(Sender: TObject);
 begin
 
-    FormProcesos:= TformProcesos.Create(Application);
-      try
-          with FormProcesos do
-          begin
-          Caption:= 'SELECCIONES EL PROCESO A EJECUTAR';
-
-          ShowModal;
-          end;
-
-      finally
-       FormProcesos.Free;
-
-      end;
-      end;
-
-
-procedure TForm2.btn3Click(Sender: TObject);
-begin
-//formEliminar:= TformEliminar.Create(Application);
-//      try
-//          with formEliminar do
-//          begin
-//          Caption:= 'SELECCIONA EL PRODUCTO A ELIMINAR';
-//          docProceso:=1;
-//
-//          ShowModal;
-//          end;
-//
-//      finally
-//       formEliminar.Free;
-//
-//      end;
-FormVerfactura:= TFormVerfactura.Create(Application);
-      try
-          with FormVerfactura do
-          begin
-          Caption:= 'SELECCIONES LA FACTURA A DESPACHAR';
-          docProceso:=1;
-
-          ShowModal;
-          end;
-
-      finally
-       FormVerfactura.Free;
-
-      end;
+   formCambioTasa := TformCambioTasa.Create(Application);
+try
+  formCambioTasa.tasamoneda := ObtenerTasaMoneda; // Pasar la tasa actual
+  formCambioTasa.ShowModal;
+finally
+  formCambioTasa.Free;
 end;
+      end;
+
+
+
 
 procedure TForm2.btn4Click(Sender: TObject);
 begin
@@ -306,21 +302,49 @@ begin
       end;
 end;
 
+function ObtenerTasaMoneda(CodigoMoneda: Integer = 2): Double;
+begin
+  Result := 30.0; // Valor por defecto
+
+  try
+    with d.sqTasa do
+    begin
+      Close;
+      SQL.Clear;
+      SQL.Add('SELECT FM_FACTOR FROM smoneda WHERE FM_CODE = :CODIGO');
+      ParamByName('CODIGO').AsInteger := CodigoMoneda;
+      Open;
+
+      if not EOF and not FieldByName('FM_FACTOR').IsNull then
+      begin
+        Result := FieldByName('FM_FACTOR').AsFloat;
+        if Result <= 0 then
+          Result := FieldByName('FM_FACTOR').AsFloat;;
+      end;
+
+      Close;
+    end;
+  except
+    Result := d.sqTasa.FieldByName('FM_FACTOR').AsFloat;;
+  end;
+end;
+
+
 procedure TForm2.btn6Click(Sender: TObject);
 var
 rutacarpeta, fecha : string;
 begin
-  formProductos:= TformProductos.Create(Application);
+  formArticulos:= TformArticulos.Create(Application);
       try
-          with formProductos do
+          with formArticulos do
           begin
           Caption:= 'VER PRODUCTOS';
-
+          miFactor:=ObtenerTasaMoneda;
           ShowModal;
           end;
 
       finally
-       formProductos.Free;
+       formArticulos.Free;
 
       end;
 //fecha:='';
@@ -347,20 +371,13 @@ end;
 
 procedure TForm2.btn7Click(Sender: TObject);
 begin
-formEtiquetas:= TformEtiquetas.Create(Application);
-      try
-          with formEtiquetas do
-          begin
-          Caption:= 'IMPRIMIR ETIQUETAS';
-
-
-          ShowModal;
-          end;
-
-      finally
-       formEtiquetas.Free;
-
-      end;
+  formCodebar := TformCodebar.Create(Application);
+  try
+    formCodebar.mifactor := ObtenerTasaMoneda; // ← Cambiar ObtenerTasaDelDia por ObtenerTasaMoneda
+    formCodebar.ShowModal;
+  finally
+    formEtiquetas.Free;
+  end;
 end;
 
 procedure TForm2.btn8Click(Sender: TObject);
@@ -382,19 +399,37 @@ end;
 
 procedure TForm2.btn9Click(Sender: TObject);
 begin
-formProductosVendidos:= TformProductosVendidos.Create(Application);
+  formConsulta:= TformConsulta.Create(Application);
       try
-          with formProductosVendidos do
+          with formConsulta do
           begin
-         Caption:= 'ANALISIS DE PRODUCTOS';
+          Caption:= 'CONSULTAR PRECIO';
+          miFactor:=ObtenerTasaMoneda;
+          ShowModal;
+          end;
+
+      finally
+       formConsulta.Free;
+
+      end;
+end;
+
+procedure TForm2.EditarCompra1Click(Sender: TObject);
+begin
+    FormEditarCompra:= TFormEditarCompra.Create(Application);
+      try
+          with FormEditarCompra do
+          begin
+          Caption:= 'EDITAR FACTURA';
 
           ShowModal;
           end;
 
       finally
-       formProductosVendidos.Free;
+       FormEditarCompra.Free;
 
       end;
+
 end;
 
 procedure TForm2.FormKeyDown(Sender: TObject; var Key: Word;
@@ -508,6 +543,44 @@ if FileExists('kairos.md') then
   edt1.Text:= empresa;
   stat1.SimplePanel := True;
   stat1.SimpleText := 'Serial: '+serial;
+  UnitVariablesGlobales.TasaCambiaria:=ObtenerTasaMoneda(2);
+  if unitvariables.usuario = 'ERIKA' then
+  begin
+  menEiminar.Visible:=True;
+  end
+  else
+  if unitvariables.usuario = 'MASTER' then
+  begin
+  menEiminar.Visible:=True;
+  end
+  else
+  if unitvariables.usuario = 'YECKY' then
+  begin
+  menEiminar.Visible:=True;
+  end
+  else
+
+  begin
+  menEiminar.Visible:=True;
+  end
+end;
+
+
+procedure TForm2.menEiminarClick(Sender: TObject);
+begin
+  formEliminar:= TformEliminar.Create(Application);
+      try
+          with formEliminar do
+          begin
+          Caption:= 'SELECCIONE REGISTRO A ELIMINAR';
+
+          ShowModal;
+          end;
+
+      finally
+       formEliminar.Free;
+
+      end;
 end;
 
 end.

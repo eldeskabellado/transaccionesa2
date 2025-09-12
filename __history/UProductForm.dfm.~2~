@@ -1,0 +1,596 @@
+object frmProducto: TfrmProducto
+  Left = 0
+  Top = 0
+  Caption = 'Modificar Producto'
+  ClientHeight = 520
+  ClientWidth = 680
+  Color = clBtnFace
+  Font.Charset = DEFAULT_CHARSET
+  Font.Color = clWindowText
+  Font.Height = -11
+  Font.Name = 'Tahoma'
+  Font.Style = []
+  OldCreateOrder = False
+  Position = poScreenCenter
+  OnCreate = FormCreate
+  PixelsPerInch = 96
+  TextHeight = 13
+  
+  object pnlMain: TPanel
+    Left = 8
+    Top = 8
+    Width = 664
+    Height = 504
+    TabOrder = 0
+    
+    object rgIdioma: TRadioGroup
+      Left = 16
+      Top = 8
+      Width = 200
+      Height = 60
+      Caption = 'Idioma'
+      ItemIndex = 0
+      Items.Strings = (
+        'Espa'#241'ol'
+        #20013#25991#32321#39636)
+      TabOrder = 0
+      OnClick = rgIdiomaClick
+    end
+    
+    object gbBasico: TGroupBox
+      Left = 16
+      Top = 76
+      Width = 632
+      Height = 120
+      Caption = 'F1.B'#225'sico'
+      TabOrder = 1
+      
+      object lblCodigo: TLabel
+        Left = 16
+        Top = 24
+        Width = 37
+        Height = 13
+        Caption = 'C'#243'digo'
+      end
+      
+      object lblDescripcion: TLabel
+        Left = 16
+        Top = 52
+        Width = 56
+        Height = 13
+        Caption = 'Descripci'#243'n'
+      end
+      
+      object lblCategoria: TLabel
+        Left = 16
+        Top = 80
+        Width = 51
+        Height = 13
+        Caption = 'Categor'#237'a'
+      end
+      
+      object lblIVA: TLabel
+        Left = 320
+        Top = 24
+        Width = 26
+        Height = 13
+        Caption = 'I.V.A'
+      end
+      
+      object lblCosto: TLabel
+        Left = 320
+        Top = 52
+        Width = 30
+        Height = 13
+        Caption = 'Costo'
+      end
+      
+      object lblPrecio: TLabel
+        Left = 320
+        Top = 80
+        Width = 32
+        Height = 13
+        Caption = 'Precio'
+      end
+      
+      object lblDivisa1: TLabel
+        Left = 456
+        Top = 52
+        Width = 32
+        Height = 13
+        Caption = 'Divisa'
+      end
+      
+      object lblGanancia1: TLabel
+        Left = 520
+        Top = 52
+        Width = 46
+        Height = 13
+        Caption = 'Ganancia'
+      end
+      
+      object edtCodigo: TEdit
+        Left = 80
+        Top = 21
+        Width = 121
+        Height = 21
+        TabOrder = 0
+        Text = 'C-644'
+      end
+      
+      object edtDescripcion: TEdit
+        Left = 80
+        Top = 49
+        Width = 221
+        Height = 21
+        TabOrder = 1
+        Text = 'ACCESORIO DE DAMA 5565'
+      end
+      
+      object cmbCategoria: TComboBox
+        Left = 80
+        Top = 77
+        Width = 145
+        Height = 21
+        Style = csDropDownList
+        ItemIndex = 0
+        TabOrder = 2
+        Text = 'QUINCALLERIA'
+        Items.Strings = (
+          'QUINCALLERIA'
+          'FERRETERIA'
+          'ELECTRICIDAD'
+          'PLOMERIA')
+      end
+      
+      object edtIVA: TEdit
+        Left = 352
+        Top = 21
+        Width = 49
+        Height = 21
+        TabOrder = 3
+        Text = '16%'
+      end
+      
+      object edtCosto: TEdit
+        Left = 352
+        Top = 49
+        Width = 73
+        Height = 21
+        TabOrder = 4
+        Text = '36.00'
+      end
+      
+      object edtPrecio: TEdit
+        Left = 352
+        Top = 77
+        Width = 73
+        Height = 21
+        TabOrder = 5
+        Text = '909.72'
+      end
+      
+      object edtDivisa1: TEdit
+        Left = 456
+        Top = 69
+        Width = 49
+        Height = 21
+        TabOrder = 6
+        Text = '1.000'
+      end
+      
+      object edtGanancia1: TEdit
+        Left = 520
+        Top = 69
+        Width = 65
+        Height = 21
+        TabOrder = 7
+        Text = '800.00%'
+      end
+      
+      object chkAutomatico1: TCheckBox
+        Left = 592
+        Top = 71
+        Width = 73
+        Height = 17
+        Caption = 'Autom'#225'tico'
+        TabOrder = 8
+        OnClick = chkAutomatico1Click
+      end
+      
+      object edtDivisa2: TEdit
+        Left = 456
+        Top = 97
+        Width = 49
+        Height = 21
+        TabOrder = 9
+        Text = '9.000'
+      end
+      
+      object chkAutomatico2: TCheckBox
+        Left = 520
+        Top = 99
+        Width = 73
+        Height = 17
+        Caption = 'Autom'#225'tico'
+        Checked = True
+        State = cbChecked
+        TabOrder = 10
+        OnClick = chkAutomatico2Click
+      end
+    end
+    
+    object gbMayor: TGroupBox
+      Left = 16
+      Top = 204
+      Width = 632
+      Height = 140
+      Caption = 'F2.Mayor'
+      TabOrder = 2
+      
+      object lblPrecioHeader: TLabel
+        Left = 80
+        Top = 20
+        Width = 32
+        Height = 13
+        Caption = 'Precio'
+      end
+      
+      object lblPaqueteHeader: TLabel
+        Left = 160
+        Top = 20
+        Width = 69
+        Height = 13
+        Caption = 'Paquete Nota'
+      end
+      
+      object lblGananciaDivisaHeader: TLabel
+        Left = 280
+        Top = 20
+        Width = 82
+        Height = 13
+        Caption = 'Ganancia/Divisa'
+      end
+      
+      object lblBulto: TLabel
+        Left = 16
+        Top = 44
+        Width = 26
+        Height = 13
+        Caption = 'Bulto'
+      end
+      
+      object lblPrecio1: TLabel
+        Left = 16
+        Top = 68
+        Width = 41
+        Height = 13
+        Caption = 'Precio 1'
+      end
+      
+      object lblPrecio2: TLabel
+        Left = 16
+        Top = 92
+        Width = 41
+        Height = 13
+        Caption = 'Precio 2'
+      end
+      
+      object lblPrecio3: TLabel
+        Left = 16
+        Top = 116
+        Width = 41
+        Height = 13
+        Caption = 'Precio 3'
+      end
+      
+      object edtPrecioBulto: TEdit
+        Left = 80
+        Top = 41
+        Width = 65
+        Height = 21
+        TabOrder = 0
+        Text = '0.00'
+      end
+      
+      object edtPaqueteBulto: TEdit
+        Left = 160
+        Top = 41
+        Width = 41
+        Height = 21
+        TabOrder = 1
+        Text = '3'
+      end
+      
+      object edtGananciaBulto: TEdit
+        Left = 280
+        Top = 41
+        Width = 49
+        Height = 21
+        TabOrder = 2
+        Text = '0.00%'
+      end
+      
+      object edtDivisaBulto: TEdit
+        Left = 340
+        Top = 41
+        Width = 49
+        Height = 21
+        TabOrder = 3
+        Text = '0.000'
+      end
+      
+      object chkAutomaticoBulto: TCheckBox
+        Left = 400
+        Top = 43
+        Width = 73
+        Height = 17
+        Caption = 'Autom'#225'tico'
+        TabOrder = 4
+      end
+      
+      object edtPrecio1: TEdit
+        Left = 80
+        Top = 65
+        Width = 65
+        Height = 21
+        TabOrder = 5
+        Text = '8490.72'
+      end
+      
+      object edtPaquete1: TEdit
+        Left = 160
+        Top = 65
+        Width = 41
+        Height = 21
+        TabOrder = 6
+        Text = '0'
+      end
+      
+      object edtGanancia1Mayor: TEdit
+        Left = 280
+        Top = 65
+        Width = 49
+        Height = 21
+        TabOrder = 7
+        Text = '0.00%'
+      end
+      
+      object edtDivisa1Mayor: TEdit
+        Left = 340
+        Top = 65
+        Width = 49
+        Height = 21
+        TabOrder = 8
+        Text = '94.000'
+      end
+      
+      object chkAutomatico1Mayor: TCheckBox
+        Left = 400
+        Top = 67
+        Width = 73
+        Height = 17
+        Caption = 'Autom'#225'tico'
+        TabOrder = 9
+      end
+      
+      object edtPrecio2: TEdit
+        Left = 80
+        Top = 89
+        Width = 65
+        Height = 21
+        TabOrder = 10
+        Text = '0.00'
+      end
+      
+      object edtPaquete2: TEdit
+        Left = 160
+        Top = 89
+        Width = 41
+        Height = 21
+        TabOrder = 11
+        Text = '0'
+      end
+      
+      object edtGanancia2Mayor: TEdit
+        Left = 280
+        Top = 89
+        Width = 49
+        Height = 21
+        TabOrder = 12
+        Text = '0.00%'
+      end
+      
+      object edtDivisa2Mayor: TEdit
+        Left = 340
+        Top = 89
+        Width = 49
+        Height = 21
+        TabOrder = 13
+        Text = '0.000'
+      end
+      
+      object chkAutomatico2Mayor: TCheckBox
+        Left = 400
+        Top = 91
+        Width = 73
+        Height = 17
+        Caption = 'Autom'#225'tico'
+        TabOrder = 14
+      end
+      
+      object edtPrecio3: TEdit
+        Left = 80
+        Top = 113
+        Width = 65
+        Height = 21
+        TabOrder = 15
+        Text = '0.00'
+      end
+      
+      object edtPaquete3: TEdit
+        Left = 160
+        Top = 113
+        Width = 41
+        Height = 21
+        TabOrder = 16
+        Text = '1'
+      end
+      
+      object edtGanancia3Mayor: TEdit
+        Left = 280
+        Top = 113
+        Width = 49
+        Height = 21
+        TabOrder = 17
+        Text = '0.00%'
+      end
+      
+      object edtDivisa3Mayor: TEdit
+        Left = 340
+        Top = 113
+        Width = 49
+        Height = 21
+        TabOrder = 18
+        Text = '0.000'
+      end
+      
+      object chkAutomatico3Mayor: TCheckBox
+        Left = 400
+        Top = 115
+        Width = 73
+        Height = 17
+        Caption = 'Autom'#225'tico'
+        TabOrder = 19
+      end
+    end
+    
+    object gbComprar: TGroupBox
+      Left = 16
+      Top = 352
+      Width = 300
+      Height = 80
+      Caption = 'F3.Comprar'
+      TabOrder = 3
+      
+      object lblBultoCompra: TLabel
+        Left = 16
+        Top = 24
+        Width = 26
+        Height = 13
+        Caption = 'Bulto'
+      end
+      
+      object lblCantCompra: TLabel
+        Left = 16
+        Top = 52
+        Width = 25
+        Height = 13
+        Caption = 'Cant.'
+      end
+      
+      object lblStock: TLabel
+        Left = 120
+        Top = 24
+        Width = 29
+        Height = 13
+        Caption = 'Stock'
+      end
+      
+      object lblStockInfo: TLabel
+        Left = 120
+        Top = 52
+        Width = 130
+        Height = 13
+        Caption = '-1 (Bulto: 0 + Cant.: -1)'
+      end
+      
+      object edtBultoCompra: TEdit
+        Left = 48
+        Top = 21
+        Width = 57
+        Height = 21
+        TabOrder = 0
+      end
+      
+      object edtCantCompra: TEdit
+        Left = 48
+        Top = 49
+        Width = 57
+        Height = 21
+        TabOrder = 1
+      end
+    end
+    
+    object gbGuarda: TGroupBox
+      Left = 330
+      Top = 352
+      Width = 318
+      Height = 80
+      Caption = 'F9.Guarda'
+      TabOrder = 4
+      
+      object lblEtiqueta: TLabel
+        Left = 16
+        Top = 24
+        Width = 95
+        Height = 13
+        Caption = 'F8.Etiqueta del Precio'
+      end
+      
+      object lblStock2: TLabel
+        Left = 140
+        Top = 24
+        Width = 47
+        Height = 13
+        Caption = 'F11.Stock'
+      end
+      
+      object lblEntregaSolicita: TLabel
+        Left = 16
+        Top = 52
+        Width = 87
+        Height = 13
+        Caption = 'Entrega y Solicita'
+      end
+      
+      object chkF12Cartas: TCheckBox
+        Left = 200
+        Top = 23
+        Width = 73
+        Height = 17
+        Caption = 'F12.Cartas'
+        TabOrder = 0
+      end
+      
+      object chkSupRom: TCheckBox
+        Left = 200
+        Top = 51
+        Width = 73
+        Height = 17
+        Caption = 'Sup.Rom'
+        TabOrder = 1
+      end
+    end
+    
+    object btnAceptar: TButton
+      Left = 480
+      Top = 450
+      Width = 75
+      Height = 25
+      Caption = 'Aceptar'
+      TabOrder = 5
+      OnClick = btnAceptarClick
+    end
+    
+    object btnCancelar: TButton
+      Left = 570
+      Top = 450
+      Width = 75
+      Height = 25
+      Caption = 'Cancelar'
+      TabOrder = 6
+      OnClick = btnCancelarClick
+    end
+  end
+end

@@ -1,0 +1,244 @@
+unit UnitBuscarProductos;
+
+interface
+
+uses
+  Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants, System.Classes, Vcl.Graphics,
+  Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Data.DB, Vcl.Grids, Vcl.DBGrids,
+  Vcl.ExtCtrls, Vcl.Buttons, Vcl.StdCtrls, System.UITypes, dbisamtb;
+
+type
+  TformBuscarArticulo = class(TForm)
+    pnl1: TPanel;
+    pnl2: TPanel;
+    DBGrid1: TDBGrid;
+    editProducto: TEdit;
+    btnBuscar: TSpeedButton;
+    SQBuscar: TDBISAMQuery;
+    dsBuscar: TDataSource;
+    rgBuscar: TRadioGroup;
+    procedure btnBuscarClick(Sender: TObject);
+    procedure FormShow(Sender: TObject);
+    procedure DBGrid1DblClick(Sender: TObject);
+  private
+    { Private declarations }
+  public
+    { Public declarations }
+  CodigoSeleccionado: string;
+  NombreSeleccionado: string;
+
+  DetalleSeleccionado: string;
+  obsertvaciones:string;
+
+  // Variables decimales
+  IVASeleccionado: Currency;
+  CostoSeleccionado: Currency;
+  PrecioSeleccionado: Currency;
+  PrecioDivisasSeleccionado: Currency;
+  CapacidadSeleccionado: Double;
+  DivisasSeleccionado: Currency;
+  UtilidadSeleccionado: Currency;
+  end;
+
+var
+  formBuscarArticulo: TformBuscarArticulo;
+
+implementation
+
+uses
+  UnitDatos;
+
+{$R *.dfm}
+
+procedure TformBuscarArticulo.btnBuscarClick(Sender: TObject);
+var
+  sqlQuery: string;
+  codigoProducto: string;
+  encontrado: Boolean;
+begin
+  // Cerrar el query si está abierto
+  if sqBuscar.Active then
+    sqBuscar.Close;
+
+  encontrado := False;
+
+  case rgBuscar.ItemIndex of
+    0: begin
+      // Búsqueda exacta por código
+      sqlQuery :=
+        'SELECT ' +
+        '  s.FI_CODIGO, ' +
+        '  s.FI_DESCRIPCION, ' +
+        '  s.FI_CATEGORIA, ' +
+        '  s.FI_DESCRIPCIONDETALLADA, ' +
+        '  s.FI_CAPACIDAD, ' +
+        '  p.FIC_IMP01MONTO, ' +
+        '  p.FIC_COSTOACTEXTRANJERO, ' +
+        '  p.FIC_COSTOANTEXTRANJERO, ' +
+        '  p.FIC_COSTOPROMEDIOEXTRANJERO, ' +
+        '  p.FIC_P01PORCENTUTILIDADEXT, ' +
+        '  p.FIC_P01PRECIOSINIMPUESTO, ' +
+        '  p.FIC_P01IMTOIMPUESTO01, ' +
+        '  p.FIC_P01IPRECIOTOTAL, ' +
+        '  p.FIC_P01PRECIOTOTALEXT, ' +
+        '  p.FIC_P01UTILIDADEXT, ' +
+        '  s.FI_SUBCATEGORIA ' +
+        'FROM sinventario s ' +
+        'LEFT JOIN a2InvCostosPrecios p ON s.FI_CODIGO = p.FIC_CODEITEM ' +
+        'WHERE s.FI_CODIGO = :codigo';
+
+      sqBuscar.SQL.Text := sqlQuery;
+      sqBuscar.ParamByName('codigo').AsString := editProducto.Text;
+
+      try
+        sqBuscar.Open;
+
+        // Si encontró resultados en SINVENTARIO directamente
+        if sqBuscar.RecordCount > 0 then
+        begin
+          encontrado := True;
+        end
+        else
+        begin
+          // No encontró en SINVENTARIO, buscar en SCODEBAR
+          sqBuscar.Close;
+
+          // Buscar el código en SCODEBAR
+          sqlQuery := 'SELECT FBARRA_PRODUCTO FROM sCodeBar WHERE FBARRA_CODE = :codigo';
+          sqBuscar.SQL.Text := sqlQuery;
+          sqBuscar.ParamByName('codigo').AsString := editProducto.Text;
+          sqBuscar.Open;
+
+          if sqBuscar.RecordCount > 0 then
+          begin
+            // Encontró el código en SCODEBAR, obtener el código del producto
+            codigoProducto := sqBuscar.FieldByName('FBARRA_PRODUCTO').AsString;
+            sqBuscar.Close;
+
+            // Ahora buscar en SINVENTARIO con el código del producto
+            sqlQuery :=
+              'SELECT ' +
+              '  s.FI_CODIGO, ' +
+              '  s.FI_DESCRIPCION, ' +
+              '  s.FI_CATEGORIA, ' +
+              '  s.FI_DESCRIPCIONDETALLADA, ' +
+              '  s.FI_CAPACIDAD, ' +
+              '  p.FIC_IMP01MONTO, ' +
+              '  p.FIC_COSTOACTEXTRANJERO, ' +
+              '  p.FIC_COSTOANTEXTRANJERO, ' +
+              '  p.FIC_COSTOPROMEDIOEXTRANJERO, ' +
+              '  p.FIC_P01PORCENTUTILIDADEXT, ' +
+              '  p.FIC_P01PRECIOSINIMPUESTO, ' +
+              '  p.FIC_P01IMTOIMPUESTO01, ' +
+              '  p.FIC_P01IPRECIOTOTAL, ' +
+              '  p.FIC_P01PRECIOTOTALEXT, ' +
+              '  p.FIC_P01UTILIDADEXT, ' +
+              '  s.FI_SUBCATEGORIA ' +
+              'FROM sinventario s ' +
+              'LEFT JOIN a2InvCostosPrecios p ON s.FI_CODIGO = p.FIC_CODEITEM ' +
+              'WHERE s.FI_CODIGO = :codigo';
+
+            sqBuscar.SQL.Text := sqlQuery;
+            sqBuscar.ParamByName('codigo').AsString := codigoProducto;
+            sqBuscar.Open;
+
+            if sqBuscar.RecordCount > 0 then
+            begin
+              encontrado := True;
+              ShowMessage('Producto encontrado por código asociado: ' + editProducto.Text +
+                         ' ? Producto: ' + codigoProducto);
+            end;
+          end;
+        end;
+
+      except
+        on E: Exception do
+        begin
+          ShowMessage('Error en la búsqueda: ' + E.Message);
+          Exit;
+        end;
+      end;
+    end;
+
+    1: begin
+      // Búsqueda por descripción con LIKE (sin cambios, ya que es por descripción)
+      sqlQuery :=
+        'SELECT ' +
+        '  s.FI_CODIGO, ' +
+        '  s.FI_DESCRIPCION, ' +
+        '  s.FI_CATEGORIA, ' +
+        '  s.FI_DESCRIPCIONDETALLADA, ' +
+        '  s.FI_CAPACIDAD, ' +
+        '  p.FIC_IMP01MONTO, ' +
+        '  p.FIC_COSTOACTEXTRANJERO, ' +
+        '  p.FIC_COSTOANTEXTRANJERO, ' +
+        '  p.FIC_COSTOPROMEDIOEXTRANJERO, ' +
+        '  p.FIC_P01PORCENTUTILIDADEXT, ' +
+        '  p.FIC_P01PRECIOSINIMPUESTO, ' +
+        '  p.FIC_P01IMTOIMPUESTO01, ' +
+        '  p.FIC_P01IPRECIOTOTAL, ' +
+        '  p.FIC_P01PRECIOTOTALEXT, ' +
+        '  p.FIC_P01UTILIDADEXT, ' +
+        '  s.FI_SUBCATEGORIA ' +
+        'FROM sinventario s ' +
+        'LEFT JOIN a2InvCostosPrecios p ON s.FI_CODIGO = p.FIC_CODEITEM ' +
+        'WHERE s.FI_DESCRIPCION LIKE :descripcion';
+
+      sqBuscar.SQL.Text := sqlQuery;
+      sqBuscar.ParamByName('descripcion').AsString := '%' + editProducto.Text + '%';
+
+      try
+        sqBuscar.Open;
+        if sqBuscar.RecordCount > 0 then
+          encontrado := True;
+      except
+        on E: Exception do
+        begin
+          ShowMessage('Error en la búsqueda: ' + E.Message);
+          Exit;
+        end;
+      end;
+    end;
+  end;
+
+  // Verificar resultados finales
+  if not encontrado or (sqBuscar.RecordCount = 0) then
+  begin
+    if rgBuscar.ItemIndex = 0 then
+      ShowMessage('No se encontró el código "' + editProducto.Text + '" ni en SINVENTARIO ni como código asociado en SCODEBAR.')
+    else
+      ShowMessage('No se encontraron productos con la descripción: "' + editProducto.Text + '"');
+  end;
+  // Si encontró resultados, no mostrar mensaje (el grid se actualiza automáticamente)
+end;
+
+procedure TformBuscarArticulo.DBGrid1DblClick(Sender: TObject);
+begin
+
+  if not sqBuscar.IsEmpty then
+  begin
+    // Variables string
+    CodigoSeleccionado := sqBuscar.FieldByName('FI_CODIGO').AsString;
+    obsertvaciones:=sqBuscar.FieldByName('FI_SUBCATEGORIA').AsString;
+    NombreSeleccionado := sqBuscar.FieldByName('FI_DESCRIPCION').AsString;
+    DivisasSeleccionado := sqBuscar.FieldByName('FIC_P01PRECIOTOTALEXT').AsCurrency;
+    UtilidadSeleccionado := sqBuscar.FieldByName('FIC_P01UTILIDADEXT').AsCurrency;
+    DetalleSeleccionado := sqBuscar.FieldByName('FI_DESCRIPCIONDETALLADA').AsString;
+
+    // Variables decimales
+    IVASeleccionado := sqBuscar.FieldByName('FIC_IMP01MONTO').AsCurrency;
+    CostoSeleccionado := sqBuscar.FieldByName('FIC_COSTOACTEXTRANJERO').AsCurrency;
+    PrecioSeleccionado := sqBuscar.FieldByName('FIC_P01IPRECIOTOTAL').AsCurrency;
+    PrecioDivisasSeleccionado := sqBuscar.FieldByName('FIC_P01PRECIOTOTALEXT').AsCurrency;
+    CapacidadSeleccionado := sqBuscar.FieldByName('FI_CAPACIDAD').AsFloat;
+
+    ModalResult := mrOk;
+  end;
+end;
+
+procedure TformBuscarArticulo.FormShow(Sender: TObject);
+begin
+editProducto.SetFocus;
+end;
+
+end.

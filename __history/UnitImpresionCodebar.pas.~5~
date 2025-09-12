@@ -1,0 +1,30 @@
+unit UnitImpresionCodebar;
+
+interface
+
+uses
+  Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants, System.Classes, Vcl.Graphics,
+  Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.StdCtrls;
+
+type
+  TformCodebar = class(TForm)
+    btn1: TButton;
+    lbl1: TLabel;
+    lbl2: TLabel;
+  private
+    { Private declarations }
+  public
+    { Public declarations }
+  end;
+
+var
+  formCodebar: TformCodebar;
+
+implementation
+
+uses
+  UnitDatos;
+
+{$R *.dfm}
+
+end.

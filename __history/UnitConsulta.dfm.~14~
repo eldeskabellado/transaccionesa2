@@ -1,0 +1,190 @@
+object formConsulta: TformConsulta
+  Left = 0
+  Top = 0
+  Caption = 'formConsulta'
+  ClientHeight = 543
+  ClientWidth = 722
+  Color = clWhite
+  Font.Charset = DEFAULT_CHARSET
+  Font.Color = clWindowText
+  Font.Height = -11
+  Font.Name = 'Tahoma'
+  Font.Style = []
+  OldCreateOrder = False
+  Position = poMainFormCenter
+  PixelsPerInch = 96
+  TextHeight = 13
+  object lblCodigo: TLabel
+    Left = 8
+    Top = 25
+    Width = 134
+    Height = 39
+    Caption = 'CODIGO'
+    Font.Charset = DEFAULT_CHARSET
+    Font.Color = clWindowText
+    Font.Height = -32
+    Font.Name = 'Tahoma'
+    Font.Style = [fsBold]
+    ParentFont = False
+  end
+  object btn2: TSpeedButton
+    Left = 471
+    Top = 8
+    Width = 153
+    Height = 56
+    Caption = 'Buscar'
+    OnClick = btn2Click
+  end
+  object lblPrecioDivisas1: TLabel
+    Left = 8
+    Top = 112
+    Width = 89
+    Height = 33
+    Caption = 'PVP $:'
+    Font.Charset = DEFAULT_CHARSET
+    Font.Color = clWindowText
+    Font.Height = -27
+    Font.Name = 'Tahoma'
+    Font.Style = [fsBold]
+    ParentFont = False
+  end
+  object lblPrecio: TLabel
+    Left = 8
+    Top = 184
+    Width = 105
+    Height = 33
+    Caption = 'PVP Bs:'
+    Font.Charset = DEFAULT_CHARSET
+    Font.Color = clWindowText
+    Font.Height = -27
+    Font.Name = 'Tahoma'
+    Font.Style = [fsBold]
+    ParentFont = False
+  end
+  object lblCapacidad: TLabel
+    Left = 8
+    Top = 251
+    Width = 186
+    Height = 33
+    Caption = 'Presentacion:'
+    Font.Charset = DEFAULT_CHARSET
+    Font.Color = clWindowText
+    Font.Height = -27
+    Font.Name = 'Tahoma'
+    Font.Style = [fsBold]
+    ParentFont = False
+  end
+  object editCodigo: TEdit
+    Left = 177
+    Top = 8
+    Width = 288
+    Height = 56
+    Font.Charset = DEFAULT_CHARSET
+    Font.Color = clWindowText
+    Font.Height = -32
+    Font.Name = 'Tahoma'
+    Font.Style = []
+    ParentFont = False
+    ReadOnly = True
+    TabOrder = 0
+  end
+  object editPrecioDivisasConIva: TEdit
+    Left = 177
+    Top = 98
+    Width = 288
+    Height = 47
+    Alignment = taRightJustify
+    Font.Charset = DEFAULT_CHARSET
+    Font.Color = clWindowText
+    Font.Height = -32
+    Font.Name = 'Tahoma'
+    Font.Style = []
+    ParentFont = False
+    ReadOnly = True
+    TabOrder = 1
+  end
+  object editPrecio: TEdit
+    Left = 177
+    Top = 184
+    Width = 288
+    Height = 47
+    Alignment = taRightJustify
+    Font.Charset = DEFAULT_CHARSET
+    Font.Color = clWindowText
+    Font.Height = -32
+    Font.Name = 'Tahoma'
+    Font.Style = []
+    ParentFont = False
+    ReadOnly = True
+    TabOrder = 2
+    Text = '1.908,00'
+  end
+  object DBGrid1: TDBGrid
+    Left = 8
+    Top = 341
+    Width = 697
+    Height = 170
+    Font.Charset = DEFAULT_CHARSET
+    Font.Color = clWindowText
+    Font.Height = -16
+    Font.Name = 'Tahoma'
+    Font.Style = []
+    ParentFont = False
+    TabOrder = 3
+    TitleFont.Charset = DEFAULT_CHARSET
+    TitleFont.Color = clWindowText
+    TitleFont.Height = -11
+    TitleFont.Name = 'Tahoma'
+    TitleFont.Style = []
+    Columns = <
+      item
+        Expanded = False
+        FieldName = 'FO_DESCRIPCION'
+        Title.Caption = 'PRESENTACION'
+        Width = 359
+        Visible = True
+      end
+      item
+        Expanded = False
+        FieldName = 'FO_UNDDESCARGA'
+        Title.Caption = 'CANTIDAD'
+        Width = 137
+        Visible = True
+      end
+      item
+        Expanded = False
+        FieldName = 'FO_MTOTOTAL'
+        Title.Caption = 'PRECIO $'
+        Width = 155
+        Visible = True
+      end>
+  end
+  object editCapacidad: TEdit
+    Left = 213
+    Top = 237
+    Width = 91
+    Height = 47
+    Font.Charset = DEFAULT_CHARSET
+    Font.Color = clWindowText
+    Font.Height = -32
+    Font.Name = 'Tahoma'
+    Font.Style = []
+    ParentFont = False
+    TabOrder = 4
+    Text = '10,00'
+  end
+  object SQBuscarPresentacion: TDBISAMQuery
+    DatabaseName = 'data2'
+    EngineVersion = '4.49 Build 4'
+    Params = <>
+    Left = 584
+    Top = 130
+  end
+  object SQBuscar: TDBISAMQuery
+    DatabaseName = 'data2'
+    EngineVersion = '4.49 Build 4'
+    Params = <>
+    Left = 496
+    Top = 97
+  end
+end

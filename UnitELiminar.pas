@@ -134,6 +134,26 @@ begin
 
  ExecSQL;
 end;
+with d.sqCambiarCodigo do
+begin
+ Close;
+  SQL.Clear;
+ SQL.Add('DELETE FROM SInvOferta WHERE FO_PRODUCTO = :FI_CODIGO');
+ ParamByName('FI_CODIGO').AsString:=edtCodigo.Text;
+
+ ExecSQL;
+end;
+
+with d.sqCambiarCodigo do
+begin
+ Close;
+  SQL.Clear;
+ SQL.Add('DELETE FROM Scodebar WHERE FBARRA_PRODUCTO = :FI_CODIGO');
+ ParamByName('FI_CODIGO').AsString:=edtCodigo.Text;
+
+ ExecSQL;
+end;
+
  ShowMessage('PRODUCTO ELIMINADO EXITOSAMENTE');
  edtCodigo.Clear;
  edtCodigo.SetFocus;

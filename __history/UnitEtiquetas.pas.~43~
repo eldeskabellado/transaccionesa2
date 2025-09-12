@@ -1,0 +1,903 @@
+﻿unit UnitEtiquetas;
+
+interface
+
+uses
+  Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants, System.Classes,
+  System.UITypes, Vcl.Graphics, Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.StdCtrls,
+  Vcl.ExtCtrls, frxClass, frxDBSet, dbisamtb, Data.DB;
+
+type
+  TformEtiquetas = class(TForm)
+    pnl2: TPanel;
+    lbl1: TLabel;
+    edtCodigo: TEdit;
+    pnl21: TPanel;
+    btn1: TButton;
+    btn2: TButton;
+    lbl2: TLabel;
+    rg1: TRadioGroup;
+    fsqEtiqueta: TfrxDBDataset;
+    frEtiqueta2: TfrxReport;
+    sqBuscarPresentacion: TDBISAMQuery;
+    btnImpTodos: TButton;
+    Label1: TLabel;
+    sqTasa: TDBISAMQuery;
+    sqBuscarPresentacion2: TDBISAMQuery;
+    fsqPresentacion: TfrxDBDataset;
+    fsqFACTOR: TfrxDBDataset;
+    repEtiqueta3: TfrxReport;
+    fsqEtiqueta3: TfrxDBDataset;
+    sqBuscarInventario: TDBISAMQuery;
+    sqDetalleEtiqueta: TDBISAMQuery;  // Para presentaciones de OFERTAS
+    sqDetalleEtiquetaInventario: TDBISAMQuery;  // Para presentaciones de INVENTARIO
+    rgImpresion: TRadioGroup;
+
+    procedure btn2Click(Sender: TObject);
+    procedure btn1Click(Sender: TObject);
+    procedure FormCreate(Sender: TObject);
+    procedure btnImpTodosClick(Sender: TObject);
+    procedure FormShow(Sender: TObject);
+    procedure rgImpresionClick(Sender: TObject);
+
+  private
+    { Private declarations }
+    FArchivoImpreso: string;
+    FTasaMoneda: Double;
+    function CargarCodigosImpresos: TStringList;
+    procedure GuardarCodigoImpreso(const Codigo: string);
+
+    // Métodos para imprimir TODAS (con control de archivo)
+    procedure ImprimirOfertasCompletas;
+    procedure ImprimirInventarioCompleto;
+
+    // Métodos para imprimir POR CÓDIGO específico (sin control de archivo)
+    procedure ImprimirOfertaPorCodigo(const Codigo: string);
+    procedure ImprimirInventarioPorCodigo(const Codigo: string);
+
+    function ObtenerTasaMoneda: Double;
+
+    // Métodos para presentaciones
+    procedure ImprimirPresentacionesPorCodigo(const CodigoProducto: string);
+  public
+    { Public declarations }
+    tasamoneda : Double;
+  end;
+
+var
+  formEtiquetas: TformEtiquetas;
+
+implementation
+
+uses
+  UnitBuscarProducto, UnitDatos;
+
+{$R *.dfm}
+
+// ================================
+// FUNCIONAMIENTO CON rgImpresion:
+// ================================
+// rgImpresion.ItemIndex = 0: Imprimir TODAS (con control de archivo impreso.txt)
+// rgImpresion.ItemIndex = 1: Imprimir POR CÓDIGO (sin control de archivo, siempre imprime)
+// btn1: Ofertas según modo seleccionado
+// btnImpTodos: Todo (Ofertas + Inventario) según modo seleccionado
+// sqDetalleEtiqueta: Para presentaciones de OFERTAS (FO_UNDDESCARGA <> 1)
+// sqDetalleEtiquetaInventario: Para presentaciones de INVENTARIO (FI_CAPACIDAD <> 1)
+// ================================
+
+function TformEtiquetas.ObtenerTasaMoneda: Double;
+begin
+  Result := 30.0; // Valor por defecto
+
+  try
+    with sqTasa do
+    begin
+      Close;
+      SQL.Clear;
+      SQL.Add('SELECT FM_FACTOR FROM smoneda WHERE FM_CODE = 2');
+
+      try
+        Open;
+        if not EOF and not FieldByName('FM_FACTOR').IsNull then
+        begin
+          Result := FieldByName('FM_FACTOR').AsFloat;
+          if Result <= 0 then
+            Result := 30.0;
+        end
+        else
+        begin
+          // Intentar con FM_CODE como string
+          Close;
+          SQL.Clear;
+          SQL.Add('SELECT FM_FACTOR FROM smoneda WHERE FM_CODE = ''2''');
+          Open;
+          if not EOF and not FieldByName('FM_FACTOR').IsNull then
+          begin
+            Result := FieldByName('FM_FACTOR').AsFloat;
+            if Result <= 0 then
+              Result := 30.0;
+          end;
+        end;
+        Close;
+      except
+        on E: Exception do
+        begin
+          Result := 30.0;
+          ShowMessage('Error obteniendo tasa: ' + E.Message + '. Usando tasa por defecto: 30.0');
+        end;
+      end;
+    end;
+  except
+    on E: Exception do
+    begin
+      Result := 30.0;
+      ShowMessage('Error general obteniendo tasa: ' + E.Message + '. Usando tasa por defecto: 30.0');
+    end;
+  end;
+
+  FTasaMoneda := Result;
+end;
+
+procedure TformEtiquetas.rgImpresionClick(Sender: TObject);
+begin
+  case rgImpresion.ItemIndex of
+    0: begin
+      edtCodigo.Enabled := False;
+      btn2.Enabled := False;
+      if Assigned(Label1) then
+        Label1.Caption := 'Modo: Imprimir TODAS (con control de archivo)';
+    end;
+    1: begin
+      edtCodigo.Enabled := True;
+      btn2.Enabled := True;
+      if Assigned(Label1) then
+        Label1.Caption := 'Modo: Imprimir POR CÓDIGO (sin control de archivo)';
+    end;
+  end;
+end;
+
+procedure TformEtiquetas.FormCreate(Sender: TObject);
+begin
+  FArchivoImpreso := ExtractFilePath(Application.ExeName) + 'impreso.txt';
+  FTasaMoneda := 30.0; // Valor por defecto
+
+  if Assigned(btnImpTodos) then
+    btnImpTodos.Caption := 'Imprimir Todo (Ofertas + Inventario)';
+
+  if Assigned(btn1) then
+    btn1.Caption := 'Imprimir Ofertas';
+
+  if Assigned(rgImpresion) then
+  begin
+    rgImpresion.Items.Clear;
+    rgImpresion.Items.Add('Imprimir TODAS');
+    rgImpresion.Items.Add('Imprimir POR CÓDIGO');
+  end;
+end;
+
+procedure TformEtiquetas.FormShow(Sender: TObject);
+begin
+  // Obtener tasa de moneda al mostrar el formulario
+  TasaMoneda := ObtenerTasaMoneda;
+
+  // Configuración inicial
+  edtCodigo.Enabled := False;
+  btn2.Enabled := False;
+  rgImpresion.ItemIndex := 0;
+
+  if Assigned(Label1) then
+  begin
+    Label1.Caption := 'Modo: Imprimir TODAS (con control de archivo)';
+    Label1.Font.Color := clGreen;
+  end;
+end;
+
+function TformEtiquetas.CargarCodigosImpresos: TStringList;
+begin
+  Result := TStringList.Create;
+  if FileExists(FArchivoImpreso) then
+  begin
+    try
+      Result.LoadFromFile(FArchivoImpreso);
+    except
+      on E: Exception do
+        ShowMessage('Error al cargar archivo de impresos: ' + E.Message);
+    end;
+  end;
+end;
+
+procedure TformEtiquetas.GuardarCodigoImpreso(const Codigo: string);
+var
+  Lista: TStringList;
+begin
+  Lista := TStringList.Create;
+  try
+    if FileExists(FArchivoImpreso) then
+      Lista.LoadFromFile(FArchivoImpreso);
+
+    if Lista.IndexOf(Codigo) = -1 then
+    begin
+      Lista.Add(Codigo);
+      try
+        Lista.SaveToFile(FArchivoImpreso);
+      except
+        on E: Exception do
+          ShowMessage('Error al guardar código impreso: ' + E.Message);
+      end;
+    end;
+  finally
+    Lista.Free;
+  end;
+end;
+
+// ================================
+// MÉTODO PARA IMPRIMIR PRESENTACIONES POR CÓDIGO
+// ================================
+procedure TformEtiquetas.ImprimirPresentacionesPorCodigo(const CodigoProducto: string);
+var
+  SQLText: string;
+  CodigoActual: string;
+  PrecioCalculado: Double;
+  Factor: Double;
+  TasaStr: string;
+begin
+  // Convertir tasa a string con punto decimal para SQL
+  TasaStr := StringReplace(FloatToStr(FTasaMoneda), ',', '.', [rfReplaceAll]);
+
+  // ===================================
+  // QUERY 1: Buscar en SINVOFERTA (FO_UNDDESCARGA <> 1)
+  // USAR: sqDetalleEtiqueta
+  // ===================================
+  SQLText := 'SELECT FO_PRODUCTO, FO_DESCRIPCION, FO_UNDDESCARGA, ' +
+             '(FO_MTOTOTAL / ' + TasaStr + ') AS FO_PRECIO_CALCULADO ' +
+             'FROM sinvoferta ' +
+             'WHERE FO_VISIBLE = TRUE AND FO_UNDDESCARGA <> 1 ' +
+             'AND FO_PRODUCTO = ' + QuotedStr(CodigoProducto) +
+             ' ORDER BY FO_UNDDESCARGA';
+
+  with sqDetalleEtiqueta do
+  begin
+    Close;
+    SQL.Clear;
+    SQL.Add(SQLText);
+
+    try
+      Open;
+
+      if RecordCount > 0 then
+      begin
+        First;
+        while not EOF do
+        begin
+          CodigoActual := FieldByName('FO_PRODUCTO').AsString;
+          Factor := FieldByName('FO_UNDDESCARGA').AsFloat;
+          // El precio ya viene calculado desde el SQL (dividido por tasa)
+          PrecioCalculado := FieldByName('FO_PRECIO_CALCULADO').AsFloat;
+
+          if Assigned(Label1) then
+          begin
+            Label1.Caption := Format('Imprimiendo presentación OFERTA: %s (Factor: %.2f)',
+              [CodigoActual, Factor]);
+            Label1.Font.Color := clBlue;
+            Application.ProcessMessages;
+          end;
+
+          // Enviar valores al reporte FastReport
+          frEtiqueta2.Variables['PrecioCalculado'] := FloatToStr(PrecioCalculado);
+          frEtiqueta2.Variables['Factor'] := FloatToStr(Factor);
+          frEtiqueta2.Variables['TipoOrigen'] := 'OFERTA';
+
+          // Configurar e imprimir
+          frEtiqueta2.PrintOptions.ShowDialog := False;
+          frEtiqueta2.ShowProgress := False;
+          frEtiqueta2.PrepareReport;
+          frEtiqueta2.Print;
+
+          Next;
+        end;
+      end;
+      Close;
+    except
+      on E: Exception do
+        ShowMessage('Error al imprimir presentaciones de oferta: ' + E.Message);
+    end;
+  end;
+
+  // ===================================
+  // QUERY 2: Buscar en SINVENTARIO (FI_CAPACIDAD <> 1)
+  // USAR: sqDetalleEtiquetaInventario
+  // ===================================
+  SQLText := 'SELECT I.FI_CODIGO, I.FI_DESCRIPCION, I.FI_CAPACIDAD, ' +
+             'C.FIC_P01PRECIOTOTALEXT ' +
+             'FROM SINVENTARIO AS I ' +
+             'INNER JOIN a2InvCostosPrecios AS C ON I.FI_CODIGO = C.FIC_CODEITEM ' +
+             'WHERE I.FI_STATUS = TRUE AND I.FI_CAPACIDAD <> 1 ' +
+             'AND I.FI_CODIGO = ' + QuotedStr(CodigoProducto) +
+             ' ORDER BY I.FI_CAPACIDAD';
+
+  with sqDetalleEtiquetaInventario do
+  begin
+    Close;
+    SQL.Clear;
+    SQL.Add(SQLText);
+
+    try
+      Open;
+
+      if RecordCount > 0 then
+      begin
+        First;
+        while not EOF do
+        begin
+          CodigoActual := FieldByName('FI_CODIGO').AsString;
+          Factor := FieldByName('FI_CAPACIDAD').AsFloat;
+          // El precio ya viene en divisas, NO recalcular
+          PrecioCalculado := FieldByName('FIC_P01PRECIOTOTALEXT').AsFloat;
+
+          if Assigned(Label1) then
+          begin
+            Label1.Caption := Format('Imprimiendo presentación INVENTARIO: %s (Capacidad: %.2f)',
+              [CodigoActual, Factor]);
+            Label1.Font.Color := clBlue;
+            Application.ProcessMessages;
+          end;
+
+          // Enviar valores al reporte FastReport
+          repEtiqueta3.Variables['PrecioFinal'] := FloatToStr(PrecioCalculado);
+          repEtiqueta3.Variables['Capacidad'] := FloatToStr(Factor);
+          repEtiqueta3.Variables['TipoOrigen'] := 'INVENTARIO';
+
+          // Configurar e imprimir
+          repEtiqueta3.PrintOptions.ShowDialog := False;
+          repEtiqueta3.ShowProgress := False;
+          repEtiqueta3.PrepareReport;
+          repEtiqueta3.Print;
+
+          Next;
+        end;
+      end;
+      Close;
+    except
+      on E: Exception do
+        ShowMessage('Error al imprimir presentaciones de inventario: ' + E.Message);
+    end;
+  end;
+end;
+
+// ================================
+// IMPRESIÓN POR CÓDIGO ESPECÍFICO (SIN CONTROL DE ARCHIVO)
+// ================================
+
+procedure TformEtiquetas.ImprimirOfertaPorCodigo(const Codigo: string);
+var
+  SQLText: string;
+  TasaStr: string;
+  PrecioBase: Double;
+begin
+  if Trim(Codigo) = '' then
+  begin
+    ShowMessage('Debe especificar un código de producto');
+    Exit;
+  end;
+
+  // Convertir tasa a string con punto decimal
+  TasaStr := StringReplace(FloatToStr(FTasaMoneda), ',', '.', [rfReplaceAll]);
+
+  // Buscar en ofertas (FO_UNDDESCARGA = 1)
+  SQLText := 'SELECT FO_PRODUCTO, FO_DESCRIPCION, FO_UNDDESCARGA, FO_MTOTOTAL ' +
+             'FROM sinvoferta ' +
+             'WHERE FO_VISIBLE = TRUE AND FO_UNDDESCARGA = 1 ' +
+             'AND FO_PRODUCTO = ' + QuotedStr(Codigo);
+
+  with sqBuscarPresentacion do
+  begin
+    Close;
+    SQL.Clear;
+    SQL.Add(SQLText);
+
+    try
+      Open;
+
+      if RecordCount > 0 then
+      begin
+        PrecioBase := FieldByName('FO_MTOTOTAL').AsFloat;
+
+        if Assigned(Label1) then
+        begin
+          Label1.Caption := Format('Imprimiendo oferta: %s', [Codigo]);
+          Label1.Font.Color := clBlue;
+          Application.ProcessMessages;
+        end;
+
+        // Imprimir etiqueta principal
+        frEtiqueta2.PrintOptions.ShowDialog := False;
+        frEtiqueta2.ShowProgress := False;
+        frEtiqueta2.PrepareReport;
+        frEtiqueta2.Print;
+
+        // Imprimir presentaciones adicionales
+        ImprimirPresentacionesPorCodigo(Codigo);
+
+        if Assigned(Label1) then
+        begin
+          Label1.Caption := 'Oferta impresa correctamente';
+          Label1.Font.Color := clGreen;
+        end;
+
+        ShowMessage('Oferta impresa correctamente + presentaciones');
+      end
+      else
+      begin
+        if Assigned(Label1) then
+        begin
+          Label1.Caption := 'Código no encontrado en ofertas';
+          Label1.Font.Color := clMaroon;
+        end;
+        ShowMessage('Código no encontrado en ofertas con FO_UNDDESCARGA = 1');
+      end;
+      Close;
+    except
+      on E: Exception do
+        ShowMessage('Error al buscar oferta: ' + E.Message);
+    end;
+  end;
+end;
+
+procedure TformEtiquetas.ImprimirInventarioPorCodigo(const Codigo: string);
+var
+  SQLText: string;
+begin
+  if Trim(Codigo) = '' then
+  begin
+    ShowMessage('Debe especificar un código de producto');
+    Exit;
+  end;
+
+  // Buscar en inventario (FI_CAPACIDAD = 1)
+  SQLText := 'SELECT I.FI_CODIGO, I.FI_DESCRIPCION, I.FI_STATUS, ' +
+             'I.FI_UNIDAD, I.FI_CAPACIDAD, C.FIC_P01PRECIOTOTALEXT ' +
+             'FROM SINVENTARIO AS I ' +
+             'INNER JOIN a2InvCostosPrecios AS C ON I.FI_CODIGO = C.FIC_CODEITEM ' +
+             'WHERE I.FI_STATUS = TRUE AND I.FI_CAPACIDAD = 1 ' +
+             'AND I.FI_CODIGO = ' + QuotedStr(Codigo);
+
+  with sqBuscarInventario do
+  begin
+    Close;
+    SQL.Clear;
+    SQL.Add(SQLText);
+
+    try
+      Open;
+
+      if RecordCount > 0 then
+      begin
+        if Assigned(Label1) then
+        begin
+          Label1.Caption := Format('Imprimiendo inventario: %s', [Codigo]);
+          Label1.Font.Color := clBlue;
+          Application.ProcessMessages;
+        end;
+
+        // Imprimir etiqueta principal
+        repEtiqueta3.PrintOptions.ShowDialog := False;
+        repEtiqueta3.ShowProgress := False;
+        repEtiqueta3.PrepareReport;
+        repEtiqueta3.Print;
+
+        // Imprimir presentaciones adicionales
+        ImprimirPresentacionesPorCodigo(Codigo);
+
+        if Assigned(Label1) then
+        begin
+          Label1.Caption := 'Inventario impreso correctamente';
+          Label1.Font.Color := clGreen;
+        end;
+
+        ShowMessage('Inventario impreso correctamente + presentaciones');
+      end
+      else
+      begin
+        if Assigned(Label1) then
+        begin
+          Label1.Caption := 'Código no encontrado en inventario';
+          Label1.Font.Color := clMaroon;
+        end;
+        ShowMessage('Código no encontrado en inventario con FI_CAPACIDAD = 1');
+      end;
+      Close;
+    except
+      on E: Exception do
+        ShowMessage('Error al buscar inventario: ' + E.Message);
+    end;
+  end;
+end;
+
+// ================================
+// IMPRESIÓN DE TODAS (CON CONTROL DE ARCHIVO)
+// ================================
+
+procedure TformEtiquetas.ImprimirOfertasCompletas;
+var
+  CodigosImpresos: TStringList;
+  SQLText: string;
+  i: Integer;
+  CodigoActual: string;
+  TotalRegistros, Procesados: Integer;
+  TasaStr: string;
+  PrecioBase: Double;
+begin
+  CodigosImpresos := CargarCodigosImpresos;
+  try
+    // Convertir tasa a string con punto decimal
+    TasaStr := StringReplace(FloatToStr(TasaMoneda), ',', '.', [rfReplaceAll]);
+
+    // Construir consulta SQL para unidades detalladas (FO_UNDDESCARGA = 1)
+    SQLText := 'SELECT FO_PRODUCTO, FO_DESCRIPCION, FO_UNDDESCARGA, FO_MTOTOTAL ' +
+               'FROM sinvoferta ' +
+               'WHERE FO_VISIBLE = TRUE AND FO_UNDDESCARGA = 1';
+
+    // Excluir códigos ya impresos
+    if CodigosImpresos.Count > 0 then
+    begin
+      SQLText := SQLText + ' AND FO_PRODUCTO NOT IN (';
+      for i := 0 to CodigosImpresos.Count - 1 do
+      begin
+        SQLText := SQLText + QuotedStr(CodigosImpresos[i]);
+        if i < CodigosImpresos.Count - 1 then
+          SQLText := SQLText + ', ';
+      end;
+      SQLText := SQLText + ')';
+    end;
+    SQLText := SQLText + ' ORDER BY FO_PRODUCTO';
+
+    // Ejecutar consulta
+    with sqBuscarPresentacion do
+    begin
+      Close;
+      SQL.Clear;
+      SQL.Add(SQLText);
+      try
+        Open;
+      except
+        on E: Exception do
+        begin
+          ShowMessage('Error al ejecutar consulta de ofertas: ' + E.Message + #13#10 + 'SQL: ' + SQLText);
+          Exit;
+        end;
+      end;
+
+      TotalRegistros := RecordCount;
+      Procesados := 0;
+
+      if RecordCount = 0 then
+      begin
+        if Assigned(Label1) then
+        begin
+          Label1.Caption := 'No hay ofertas pendientes (FO_UNDDESCARGA = 1)';
+          Label1.Font.Color := clMaroon;
+        end;
+        ShowMessage('No hay ofertas para imprimir');
+        Close;
+        Exit;
+      end;
+
+      // Confirmar antes de proceder
+      if MessageDlg(Format('Se encontraron %d ofertas para imprimir (+ presentaciones). ¿Continuar?', [TotalRegistros]),
+                   mtConfirmation, [mbYes, mbNo], 0) <> mrYes then
+      begin
+        if Assigned(Label1) then
+        begin
+          Label1.Caption := 'Operación cancelada';
+          Label1.Font.Color := clGray;
+        end;
+        Close;
+        Exit;
+      end;
+
+      // Procesar cada registro
+      First;
+      while not EOF do
+      begin
+        CodigoActual := FieldByName('FO_PRODUCTO').AsString;
+        PrecioBase := FieldByName('FO_MTOTOTAL').AsFloat;
+
+        if Assigned(Label1) then
+        begin
+          Label1.Caption := Format('Procesando oferta: %s (%d/%d)',
+            [CodigoActual, Procesados + 1, TotalRegistros]);
+          Label1.Font.Color := clBlue;
+          Application.ProcessMessages;
+        end;
+
+        // Imprimir la etiqueta principal (unidad detallada)
+        frEtiqueta2.PrintOptions.ShowDialog := False;
+        frEtiqueta2.ShowProgress := False;
+        frEtiqueta2.PrepareReport;
+        frEtiqueta2.Print;
+
+        // Imprimir las presentaciones adicionales
+        ImprimirPresentacionesPorCodigo(CodigoActual);
+
+        // Marcar como impreso
+        GuardarCodigoImpreso(CodigoActual);
+        Inc(Procesados);
+        Next;
+      end;
+      Close;
+    end;
+
+    if Assigned(Label1) then
+    begin
+      Label1.Caption := Format('Ofertas completadas: %d impresas + presentaciones', [Procesados]);
+      Label1.Font.Color := clGreen;
+    end;
+
+    ShowMessage(Format('Ofertas completadas. Se imprimieron %d etiquetas principales + presentaciones.', [Procesados]));
+
+  finally
+    CodigosImpresos.Free;
+  end;
+end;
+
+procedure TformEtiquetas.ImprimirInventarioCompleto;
+var
+  CodigosImpresos: TStringList;
+  SQLText: string;
+  i: Integer;
+  CodigoActual: string;
+  TotalRegistros, Procesados: Integer;
+  TasaStr: string;
+begin
+  CodigosImpresos := CargarCodigosImpresos;
+  try
+    // Convertir tasa a string con punto decimal
+    TasaStr := StringReplace(FloatToStr(TasaMoneda), ',', '.', [rfReplaceAll]);
+
+    // Consulta para unidades detalladas (FI_CAPACIDAD = 1)
+    SQLText := 'SELECT I.FI_CODIGO, I.FI_DESCRIPCION, I.FI_STATUS, ' +
+               'I.FI_UNIDAD, I.FI_CAPACIDAD, C.FIC_P01PRECIOTOTALEXT ' +
+               'FROM SINVENTARIO AS I ' +
+               'INNER JOIN a2InvCostosPrecios AS C ON I.FI_CODIGO = C.FIC_CODEITEM ' +
+               'WHERE I.FI_STATUS = TRUE AND I.FI_CAPACIDAD = 1';
+
+    // Excluir códigos ya impresos
+    if CodigosImpresos.Count > 0 then
+    begin
+      SQLText := SQLText + ' AND I.FI_CODIGO NOT IN (';
+      for i := 0 to CodigosImpresos.Count - 1 do
+      begin
+        SQLText := SQLText + QuotedStr(CodigosImpresos[i]);
+        if i < CodigosImpresos.Count - 1 then
+          SQLText := SQLText + ', ';
+      end;
+      SQLText := SQLText + ')';
+    end;
+    SQLText := SQLText + ' ORDER BY I.FI_CODIGO';
+
+    // Ejecutar consulta
+    with sqBuscarInventario do
+    begin
+      Close;
+      SQL.Clear;
+      SQL.Add(SQLText);
+      try
+        Open;
+      except
+        on E: Exception do
+        begin
+          ShowMessage('Error al ejecutar consulta de inventario: ' + E.Message + #13#10 + 'SQL: ' + SQLText);
+          Exit;
+        end;
+      end;
+
+      TotalRegistros := RecordCount;
+      Procesados := 0;
+
+      if RecordCount = 0 then
+      begin
+        if Assigned(Label1) then
+        begin
+          Label1.Caption := 'No hay productos de inventario pendientes';
+          Label1.Font.Color := clMaroon;
+        end;
+        ShowMessage('No hay productos de inventario para imprimir');
+        Close;
+        Exit;
+      end;
+
+      // Confirmar antes de proceder
+      if MessageDlg(Format('Se encontraron %d productos de inventario para imprimir (+ presentaciones). ¿Continuar?', [TotalRegistros]),
+                   mtConfirmation, [mbYes, mbNo], 0) <> mrYes then
+      begin
+        if Assigned(Label1) then
+        begin
+          Label1.Caption := 'Operación de inventario cancelada';
+          Label1.Font.Color := clGray;
+        end;
+        Close;
+        Exit;
+      end;
+
+      // Procesar cada registro
+      First;
+      while not EOF do
+      begin
+        CodigoActual := FieldByName('FI_CODIGO').AsString;
+
+        if Assigned(Label1) then
+        begin
+          Label1.Caption := Format('Procesando inventario: %s (%d/%d)',
+            [CodigoActual, Procesados + 1, TotalRegistros]);
+          Label1.Font.Color := clBlue;
+          Application.ProcessMessages;
+        end;
+
+        // Imprimir la etiqueta principal (unidad detallada)
+        repEtiqueta3.PrintOptions.ShowDialog := False;
+        repEtiqueta3.ShowProgress := False;
+        repEtiqueta3.PrepareReport;
+        repEtiqueta3.Print;
+
+        // Imprimir las presentaciones adicionales
+        ImprimirPresentacionesPorCodigo(CodigoActual);
+
+        // Marcar como impreso
+        GuardarCodigoImpreso(CodigoActual);
+        Inc(Procesados);
+        Next;
+      end;
+      Close;
+    end;
+
+    if Assigned(Label1) then
+    begin
+      Label1.Caption := Format('Inventario completado: %d productos impresos + presentaciones', [Procesados]);
+      Label1.Font.Color := clGreen;
+    end;
+
+    ShowMessage(Format('Inventario completado. Se imprimieron %d etiquetas principales + presentaciones.', [Procesados]));
+
+  finally
+    CodigosImpresos.Free;
+  end;
+end;
+
+// ================================
+// EVENTOS DE BOTONES CON MODO rgImpresion
+// ================================
+
+procedure TformEtiquetas.btn1Click(Sender: TObject);
+begin
+  try
+    // Obtener tasa actualizada
+    TasaMoneda := ObtenerTasaMoneda;
+
+    case rgImpresion.ItemIndex of
+      0: begin
+        // Modo: Imprimir TODAS (con control de archivo)
+        if Assigned(Label1) then
+        begin
+          Label1.Caption := 'Iniciando impresión de TODAS las ofertas...';
+          Label1.Font.Color := clBlue;
+          Application.ProcessMessages;
+        end;
+        ImprimirOfertasCompletas;
+      end;
+
+      1: begin
+        // Modo: Imprimir POR CÓDIGO (sin control de archivo)
+        if Trim(edtCodigo.Text) = '' then
+        begin
+          ShowMessage('Debe especificar un código de producto');
+          edtCodigo.SetFocus;
+          Exit;
+        end;
+
+        if Assigned(Label1) then
+        begin
+          Label1.Caption := 'Iniciando impresión por código...';
+          Label1.Font.Color := clBlue;
+          Application.ProcessMessages;
+        end;
+        ImprimirOfertaPorCodigo(Trim(edtCodigo.Text));
+      end;
+    else
+      ShowMessage('Seleccione un modo de impresión');
+    end;
+
+  except
+    on E: Exception do
+    begin
+      if Assigned(Label1) then
+      begin
+        Label1.Caption := 'Error en impresión de ofertas';
+        Label1.Font.Color := clRed;
+      end;
+      ShowMessage('Error durante la impresión de ofertas: ' + E.Message);
+    end;
+  end;
+end;
+
+procedure TformEtiquetas.btnImpTodosClick(Sender: TObject);
+begin
+  try
+    // Obtener tasa actualizada
+    TasaMoneda := ObtenerTasaMoneda;
+
+    case rgImpresion.ItemIndex of
+      0: begin
+        // Modo: Imprimir TODO (con control de archivo)
+        if Assigned(Label1) then
+        begin
+          Label1.Caption := 'Iniciando impresión completa...';
+          Label1.Font.Color := clBlue;
+          Application.ProcessMessages;
+        end;
+
+        // Primero ofertas
+        ShowMessage('Iniciando impresión de OFERTAS + presentaciones...');
+        ImprimirOfertasCompletas;
+
+        // Luego inventario
+        ShowMessage('Iniciando impresión de INVENTARIO + presentaciones...');
+        ImprimirInventarioCompleto;
+      end;
+
+      1: begin
+        // Modo: Imprimir TODO por código específico (sin control de archivo)
+        if Trim(edtCodigo.Text) = '' then
+        begin
+          ShowMessage('Debe especificar un código de producto');
+          edtCodigo.SetFocus;
+          Exit;
+        end;
+
+        if Assigned(Label1) then
+        begin
+          Label1.Caption := 'Iniciando impresión completa por código...';
+          Label1.Font.Color := clBlue;
+          Application.ProcessMessages;
+        end;
+
+        // Buscar e imprimir en ofertas
+        ShowMessage('Buscando en OFERTAS...');
+        ImprimirOfertaPorCodigo(Trim(edtCodigo.Text));
+
+        // Buscar e imprimir en inventario
+        ShowMessage('Buscando en INVENTARIO...');
+        ImprimirInventarioPorCodigo(Trim(edtCodigo.Text));
+      end;
+    else
+      ShowMessage('Seleccione un modo de impresión');
+    end;
+
+  except
+    on E: Exception do
+    begin
+      if Assigned(Label1) then
+      begin
+        Label1.Caption := 'Error en impresión completa';
+        Label1.Font.Color := clRed;
+      end;
+      ShowMessage('Error durante la impresión completa: ' + E.Message);
+    end;
+  end;
+end;
+
+procedure TformEtiquetas.btn2Click(Sender: TObject);
+begin
+  formbuscarProducto := TformbuscarProducto.Create(Application);
+  try
+    with formbuscarProducto do
+    begin
+      Caption := 'SELECCIONAR PRODUCTO (REFERENCIA)';
+      ShowModal;
+    end;
+  finally
+    edtCodigo.Text := formbuscarProducto.codigoproducto;
+    formbuscarProducto.Free;
+  end;
+end;
+
+end.

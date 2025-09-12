@@ -3,7 +3,7 @@ object d: Td
   Height = 473
   Width = 780
   object datprincipal: TDBISAMDatabase
-    EngineVersion = '4.43 Build 1'
+    EngineVersion = '4.49 Build 4'
     Connected = True
     DatabaseName = 'datprincipal'
     Directory = 'M:\a2Softway\Empre001\Data'
@@ -11,17 +11,17 @@ object d: Td
     Left = 136
   end
   object data2: TDBISAMDatabase
-    EngineVersion = '4.43 Build 1'
+    EngineVersion = '4.49 Build 4'
     Connected = True
     DatabaseName = 'data2'
-    Directory = 'M:\a2Softway\Empre001\Data'
+    Directory = 'C:\a2Apps\a2Softway\Empre001\Data'
     SessionName = 'Default'
     Left = 16
     Top = 8
   end
   object sqconfig: TDBISAMQuery
     DatabaseName = 'datprincipal'
-    EngineVersion = '4.43 Build 1'
+    EngineVersion = '4.49 Build 4'
     SQL.Strings = (
       'SELECT * FROM CONFIG')
     Params = <>
@@ -30,7 +30,7 @@ object d: Td
   end
   object sqoperacioninv: TDBISAMQuery
     DatabaseName = 'data2'
-    EngineVersion = '4.43 Build 1'
+    EngineVersion = '4.49 Build 4'
     SQL.Strings = (
       'SELECT * FROM CONFIG')
     Params = <>
@@ -39,14 +39,14 @@ object d: Td
   end
   object sqdetalleventa: TDBISAMQuery
     DatabaseName = 'data2'
-    EngineVersion = '4.43 Build 1'
+    EngineVersion = '4.49 Build 4'
     Params = <>
     Left = 272
     Top = 8
   end
   object sqborrarfactura: TDBISAMQuery
     DatabaseName = 'data2'
-    EngineVersion = '4.43 Build 1'
+    EngineVersion = '4.49 Build 4'
     SQL.Strings = (
       'SELECT * FROM CONFIG')
     Params = <>
@@ -55,7 +55,7 @@ object d: Td
   end
   object sqcontar: TDBISAMQuery
     DatabaseName = 'data2'
-    EngineVersion = '4.43 Build 1'
+    EngineVersion = '4.49 Build 4'
     SQL.Strings = (
       'SELECT * FROM CONFIG')
     Params = <>
@@ -64,7 +64,7 @@ object d: Td
   end
   object sqborrarproductos: TDBISAMQuery
     DatabaseName = 'data2'
-    EngineVersion = '4.43 Build 1'
+    EngineVersion = '4.49 Build 4'
     SQL.Strings = (
       'SELECT * FROM CONFIG')
     Params = <>
@@ -73,7 +73,7 @@ object d: Td
   end
   object squsuarios: TDBISAMQuery
     DatabaseName = 'data2'
-    EngineVersion = '4.43 Build 1'
+    EngineVersion = '4.49 Build 4'
     SQL.Strings = (
       'SELECT * FROM Susuarios'
       'WHERE  Clave = :pclave AND Nombre = :pnombre')
@@ -99,7 +99,7 @@ object d: Td
       end>
   end
   object datlocal: TDBISAMDatabase
-    EngineVersion = '4.43 Build 1'
+    EngineVersion = '4.49 Build 4'
     Connected = True
     DatabaseName = 'datlocal'
     Directory = 'C:\Proyectos\Transaccionesa2\Win32\Debug\datos'
@@ -109,7 +109,7 @@ object d: Td
   end
   object sqserie: TDBISAMQuery
     DatabaseName = 'data2'
-    EngineVersion = '4.43 Build 1'
+    EngineVersion = '4.49 Build 4'
     SQL.Strings = (
       'SELECT DUMMYKEY FROM Ssistema'
       'WHERE  DUMMYKEY <> '#39#39)
@@ -124,7 +124,7 @@ object d: Td
   end
   object sqFacturas: TDBISAMQuery
     DatabaseName = 'data2'
-    EngineVersion = '4.43 Build 1'
+    EngineVersion = '4.49 Build 4'
     SQL.Strings = (
       
         'SELECT S.FCC_SERIE, S.FCC_MONTOMONEDAEXT,  S.FCC_FACTORCAMBIO, S' +
@@ -242,7 +242,7 @@ object d: Td
   end
   object sqVendedores: TDBISAMQuery
     DatabaseName = 'data2'
-    EngineVersion = '4.43 Build 1'
+    EngineVersion = '4.49 Build 4'
     SQL.Strings = (
       'SELECT * FROM Svendedores'
       
@@ -557,11 +557,16 @@ object d: Td
   end
   object sqLista: TDBISAMQuery
     DatabaseName = 'data2'
-    EngineVersion = '4.43 Build 1'
+    EngineVersion = '4.49 Build 4'
     SQL.Strings = (
       'SELECT'
       '  Sinvlote.FL_CODIGO,        '
       '  SInventario.FI_DESCRIPCION,'
+      '  SInventario.FI_CATEGORIA,'
+      '  SInventario.FI_REFERENCIA,'
+      '  SInventario.ZZCAMPO_001,'
+      '  Scategoria.FD_DESCRIPCION,'
+      ''
       '  SInvLote.FL_LOTE,'
       '  Sinvlote.FL_COSTO,'
       '  Sinvlote.FL_PRECIOIMPORTADO,'
@@ -581,68 +586,18 @@ object d: Td
       
         ' INNER JOIN Sinventario ON (SInvDep.FT_CODIGOPRODUCTO=Sinventari' +
         'o.FI_CODIGO)'
+      
+        ' INNER JOIN Scategoria ON (Scategoria.FD_CODIGO=SInventario.FI_C' +
+        'ATEGORIA)'
       'WHERE  Sinvlote. FL_STATUS = True and SInvDep.FT_EXISTENCIA >=1'
       'ORDER BY  SInventario.FI_DESCRIPCION asc')
     Params = <>
     Left = 176
     Top = 256
-    object fieldListaFL_CODIGO: TStringField
-      FieldName = 'FL_CODIGO'
-      Origin = 'SinvLote.FL_CODIGO'
-      Size = 30
-    end
-    object fieldListaFI_DESCRIPCION: TStringField
-      FieldName = 'FI_DESCRIPCION'
-      Origin = 'Sinventario.FI_DESCRIPCION'
-      Size = 250
-    end
-    object fieldListaFL_LOTE: TStringField
-      FieldName = 'FL_LOTE'
-      Origin = 'SinvLote.FL_LOTE'
-      Size = 50
-    end
-    object crncyfldListaFL_COSTO: TCurrencyField
-      FieldName = 'FL_COSTO'
-      Origin = 'SinvLote.FL_COSTO'
-    end
-    object crncyfldListaFL_PRECIOSINIMPUESTO: TCurrencyField
-      FieldName = 'FL_PRECIOSINIMPUESTO'
-      Origin = 'SinvLote.FL_PRECIOSINIMPUESTO'
-    end
-    object crncyfldListaFL_MONTOIMPUESTO1: TCurrencyField
-      FieldName = 'FL_MONTOIMPUESTO1'
-      Origin = 'SinvLote.FL_MONTOIMPUESTO1'
-    end
-    object crncyfldListaFL_MONTOIMPUESTO2: TCurrencyField
-      FieldName = 'FL_MONTOIMPUESTO2'
-      Origin = 'SinvLote.FL_MONTOIMPUESTO2'
-    end
-    object fieldListaFT_CODIGOPRODUCTO: TStringField
-      FieldName = 'FT_CODIGOPRODUCTO'
-      Origin = 'sInvDep.FT_CODIGOPRODUCTO'
-      Size = 30
-    end
-    object crncyfldListaExistencia: TCurrencyField
-      FieldName = 'Existencia'
-      Origin = 'sInvDep.FT_EXISTENCIA'
-    end
-    object crncyfldListaFL_PRECIOIMPORTADO: TCurrencyField
-      FieldName = 'FL_PRECIOIMPORTADO'
-      Origin = 'SinvLote.FL_PRECIOIMPORTADO'
-    end
-    object sqListaFL_VENCIMIENTO: TDateField
-      FieldName = 'FL_VENCIMIENTO'
-      Origin = 'SinvLote.FL_VENCIMIENTO'
-    end
-    object fieldListaZZCAMPO_001: TStringField
-      FieldName = 'ZZCAMPO_001'
-      Origin = 'Sinventario.ZZCAMPO_001'
-      Size = 60
-    end
   end
   object sqbuscarProducto: TDBISAMQuery
     DatabaseName = 'data2'
-    EngineVersion = '4.43 Build 1'
+    EngineVersion = '4.49 Build 4'
     SQL.Strings = (
       
         'SELECT FI_CODIGO,  FI_DESCRIPCION, FIC_P01PRECIOTOTALEXT FROM Si' +
@@ -678,7 +633,7 @@ object d: Td
   end
   object sqCambiarCodigo: TDBISAMQuery
     DatabaseName = 'data2'
-    EngineVersion = '4.43 Build 1'
+    EngineVersion = '4.49 Build 4'
     SQL.Strings = (
       
         'SELECT S.FCC_SERIE, S.FCC_MONTOMONEDAEXT,  S.FCC_FACTORCAMBIO, S' +
@@ -717,7 +672,7 @@ object d: Td
   end
   object sqVerificarCodigo: TDBISAMQuery
     DatabaseName = 'data2'
-    EngineVersion = '4.43 Build 1'
+    EngineVersion = '4.49 Build 4'
     SQL.Strings = (
       
         'SELECT S.FCC_SERIE, S.FCC_MONTOMONEDAEXT,  S.FCC_FACTORCAMBIO, S' +
@@ -756,7 +711,7 @@ object d: Td
   end
   object sqLicores: TDBISAMQuery
     DatabaseName = 'data2'
-    EngineVersion = '4.43 Build 1'
+    EngineVersion = '4.49 Build 4'
     SQL.Strings = (
       
         'SELECT  SUM(S.FDI_CANTIDAD *  S2.FI_CAPACIDAD AS TOTAL ),S1.FTI_' +
@@ -789,7 +744,7 @@ object d: Td
   end
   object sqLicoresEntrada: TDBISAMQuery
     DatabaseName = 'data2'
-    EngineVersion = '4.43 Build 1'
+    EngineVersion = '4.49 Build 4'
     SQL.Strings = (
       
         'SELECT S1.FTI_RIFCLIENTE, S1.FTI_DOCUMENTO AS DOCUMENTO, S1.FTI_' +
@@ -1126,7 +1081,7 @@ object d: Td
   end
   object sqCompras: TDBISAMQuery
     DatabaseName = 'data2'
-    EngineVersion = '4.43 Build 1'
+    EngineVersion = '4.49 Build 4'
     SQL.Strings = (
       'Select * from SOPERACIONINV A'
       'LEFT OUTER JOIN SRETENCIONCLIENTE B'
@@ -1140,7 +1095,7 @@ object d: Td
   end
   object sqVentas: TDBISAMQuery
     DatabaseName = 'data2'
-    EngineVersion = '4.43 Build 1'
+    EngineVersion = '4.49 Build 4'
     SQL.Strings = (
       'Select * from SOPERACIONINV A'
       'LEFT OUTER JOIN SRETENCIONCLIENTE B'
@@ -1151,5 +1106,44 @@ object d: Td
     Params = <>
     Left = 544
     Top = 392
+  end
+  object sqTasa: TDBISAMQuery
+    DatabaseName = 'data2'
+    EngineVersion = '4.49 Build 4'
+    SQL.Strings = (
+      'SELECT FM_FACTOR FROM smoneda WHERE FM_CODE = 2')
+    Params = <>
+    Left = 180
+    Top = 369
+  end
+  object sqclientes: TDBISAMQuery
+    DatabaseName = 'data2'
+    EngineVersion = '4.49 Build 4'
+    SQL.Strings = (
+      'SELECT'
+      '  FC_CODIGO,'
+      '  FC_DESCRIPCION,'
+      '  FC_RIF,'
+      '  FC_DIRECCION1,'
+      '  FC_DIRECCION2,'
+      '  FC_TELEFONO,'
+      '  FC_CONTACTO,'
+      '  FC_ZONA,'
+      '  FC_DIASCREDITO,'
+      '  FC_STATUS,'
+      '  FC_LIMITECREDITO,'
+      '  FC_DIACORTE,'
+      '  FC_MAXIMODESCUENTO,'
+      '  FC_SALDO,'
+      '  FC_EMAIL,'
+      '  FC_PRECIODEFECTO,'
+      '  FC_SALDOMONEDA2,'
+      '  FC_VENDEDOR'
+      'FROM Sclientes'
+      'WHERE FC_STATUS = True'
+      'ORDER BY FC_DESCRIPCION')
+    Params = <>
+    Left = 240
+    Top = 208
   end
 end

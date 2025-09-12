@@ -1,0 +1,82 @@
+object formEliminar: TformEliminar
+  Left = 0
+  Top = 0
+  Caption = 'formEliminar'
+  ClientHeight = 170
+  ClientWidth = 341
+  Color = clWhite
+  Font.Charset = DEFAULT_CHARSET
+  Font.Color = clWindowText
+  Font.Height = -11
+  Font.Name = 'Tahoma'
+  Font.Style = []
+  OldCreateOrder = False
+  Position = poMainFormCenter
+  PixelsPerInch = 96
+  TextHeight = 13
+  object pnl2: TPanel
+    Left = 0
+    Top = 0
+    Width = 341
+    Height = 97
+    Align = alTop
+    BevelOuter = bvNone
+    TabOrder = 0
+    object lbl1: TLabel
+      Left = 88
+      Top = 16
+      Width = 77
+      Height = 23
+      Caption = 'CODIGO:'
+      Font.Charset = DEFAULT_CHARSET
+      Font.Color = clWindowText
+      Font.Height = -19
+      Font.Name = 'Tahoma'
+      Font.Style = []
+      ParentFont = False
+    end
+    object edtCodigo: TEdit
+      Left = 8
+      Top = 45
+      Width = 265
+      Height = 31
+      Font.Charset = DEFAULT_CHARSET
+      Font.Color = clWindowText
+      Font.Height = -19
+      Font.Name = 'Tahoma'
+      Font.Style = []
+      ParentFont = False
+      TabOrder = 0
+    end
+    object btn2: TButton
+      Left = 279
+      Top = 48
+      Width = 51
+      Height = 31
+      Caption = '...'
+      TabOrder = 1
+      OnClick = btn2Click
+    end
+  end
+  object pnl21: TPanel
+    Left = 0
+    Top = 97
+    Width = 341
+    Height = 64
+    Align = alTop
+    BevelOuter = bvNone
+    TabOrder = 1
+    ExplicitTop = 121
+    object btn21: TButton
+      Left = 0
+      Top = 0
+      Width = 341
+      Height = 57
+      Align = alTop
+      Caption = 'ELIMINAR'
+      TabOrder = 0
+      OnClick = btn21Click
+      ExplicitTop = 6
+    end
+  end
+end

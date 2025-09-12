@@ -37,7 +37,7 @@ var
 implementation
 
 uses
-  funciones, UnitDatos;
+  funciones, UnitDatos, UnitVariablesGlobales;
 
 {$R *.dfm}
 Function CriptClave ( Signo:ShortInt;Nombre : Str255; Cripto: Real) : String;
@@ -60,7 +60,10 @@ clave:string;
 begin
 
 clave:=CriptClave(1,edt2.Text,CriptPassword);
-
+//  d.sqTasa.Close;
+//  d.sqTasa.Open;
+//  UnitVariablesGlobales.TasaCambiaria:=d.sqTasa.FieldByName('FM_FACTOR').AsFloat;
+//  d.sqTasa.Close;
  // ShowMessage(funciones.serie);
   if UsuarioValido(UPPERCASE(edtCedula.Text), clave) then
     ModalResult := mrOK

@@ -66,7 +66,6 @@ object formEliminar: TformEliminar
     Align = alTop
     BevelOuter = bvNone
     TabOrder = 1
-    ExplicitTop = 121
     object btn21: TButton
       Left = 0
       Top = 0
@@ -76,7 +75,6 @@ object formEliminar: TformEliminar
       Caption = 'ELIMINAR'
       TabOrder = 0
       OnClick = btn21Click
-      ExplicitTop = 6
     end
   end
 end

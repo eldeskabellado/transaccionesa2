@@ -1,0 +1,152 @@
+unit UnitImpresionCodebar;
+
+interface
+
+uses
+  Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants, System.Classes, Vcl.Graphics,
+  Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.StdCtrls, Data.DB, dbisamtb,
+  frxClass, frxDBSet;
+
+type
+  TformCodebar = class(TForm)
+    btn1: TButton;
+    lbl1: TLabel;
+    lbl2: TLabel;
+    frdtEtiqueta3: TfrxDBDataset;
+    frpPresentaciones: TfrxReport;
+    frpInventario: TfrxReport;
+    frdtDetalleEtiqueta2: TfrxDBDataset;
+    frdtInventario: TfrxDBDataset;
+    frdtPresentacion: TfrxDBDataset;
+    SQDetEtiquetasPresentaciones1: TDBISAMQuery;
+    SQPresentacion1: TDBISAMQuery;
+    SQInventario1: TDBISAMQuery;
+    SQDetalleetiquetaInventario1: TDBISAMQuery;
+    procedure btn1Click(Sender: TObject);
+  private
+
+    procedure ImprimirTodasLasEtiquetas;
+  public
+    { Public declarations }
+    miFactor: Double; // Variable para el factor
+  end;
+
+var
+  formCodebar: TformCodebar;
+
+implementation
+
+uses
+  UnitDatos;
+
+{$R *.dfm}
+
+procedure TformCodebar.btn1Click(Sender: TObject);
+begin
+ImprimirTodasLasEtiquetas;
+end;
+
+procedure TformCodebar.ImprimirTodasLasEtiquetas;
+var
+  SQLText: string;
+  SQLTextInventario: string;
+  TasaStr: string;
+  CodigoProducto: string;
+begin
+  // Inicializar el factor (ajusta según necesites)
+   // O el valor que corresponda
+
+  // PASO 1: Procesar todos los registros de INVENTARIO (capacidad = 1)
+  with SQInventario1 do
+  begin
+    Close;
+    SQL.Clear;
+    SQLTextInventario := 'SELECT I.FI_CODIGO, I.FI_DESCRIPCION, I.FI_STATUS, ' +
+                         'I.FI_UNIDAD, I.FI_CAPACIDAD, C.FIC_P01PRECIOTOTALEXT ' +
+                         'FROM SINVENTARIO AS I ' +
+                         'INNER JOIN a2InvCostosPrecios AS C ON I.FI_CODIGO = C.FIC_CODEITEM ' +
+                         'WHERE I.FI_STATUS = TRUE AND I.FI_CAPACIDAD = 1';
+    SQL.Add(SQLTextInventario);
+    Open;
+
+    // Recorrer todos los registros de inventario
+    First;
+    while not EOF do
+    begin
+      CodigoProducto := FieldByName('FI_CODIGO').AsString;
+
+      // Para cada producto de inventario, buscar sus detalles (capacidad <> 1)
+      with SQDetalleetiquetaInventario1 do
+      begin
+        Close;
+        SQL.Clear;
+        SQLTextInventario := 'SELECT I.FI_CODIGO, I.FI_DESCRIPCION, I.FI_STATUS, ' +
+                             'I.FI_UNIDAD, I.FI_CAPACIDAD, ' +
+                             '(C.FIC_P01PRECIOTOTALEXT * 1.16) AS FIC_P01PRECIOTOTALEXT ' +
+                             'FROM SINVENTARIO AS I ' +
+                             'INNER JOIN a2InvCostosPrecios AS C ON I.FI_CODIGO = C.FIC_CODEITEM ' +
+                             'WHERE I.FI_STATUS = TRUE AND I.FI_CAPACIDAD <> 1 ' +
+                             'AND I.FI_CODIGO = ' + QuotedStr(CodigoProducto);
+        SQL.Add(SQLTextInventario);
+        Open;
+
+        // Si hay registros de detalle, imprimir reporte de inventario
+        if RecordCount > 0 then
+        begin
+          frpInventario.ShowReport;
+        end;
+      end;
+
+      // Avanzar al siguiente registro de inventario
+      Next;
+    end;
+  end;
+
+  // PASO 2: Procesar todos los registros de PRESENTACIONES (FO_UNDDESCARGA = 1)
+  with SQPresentacion1 do
+  begin
+    Close;
+    SQL.Clear;
+    TasaStr := StringReplace(FloatToStr(miFactor), ',', '.', [rfReplaceAll]);
+    SQLText := 'SELECT FO_PRODUCTO, FO_DESCRIPCION, FO_UNDDESCARGA, ' +
+               '(FO_MTOTOTAL / ' + TasaStr + ') AS FO_MTOTOTAL ' +
+               'FROM sinvoferta ' +
+               'WHERE FO_VISIBLE = TRUE AND FO_UNDDESCARGA = 1 ' +
+               'ORDER BY FO_PRODUCTO';
+    SQL.Add(SQLText);
+    Open;
+
+    // Recorrer todos los registros de presentaciones
+    First;
+    while not EOF do
+    begin
+      CodigoProducto := FieldByName('FO_PRODUCTO').AsString;
+
+      // Para cada producto de presentación, buscar sus detalles (FO_UNDDESCARGA <> 1)
+      with SQDetEtiquetasPresentaciones1 do
+      begin
+        Close;
+        SQL.Clear;
+        SQLText := 'SELECT FO_PRODUCTO, FO_DESCRIPCION, FO_UNDDESCARGA, ' +
+                   '(FO_MTOTOTAL / 110.56) AS FO_MTOTOTAL ' +
+                   'FROM sinvoferta ' +
+                   'WHERE FO_VISIBLE = TRUE AND FO_UNDDESCARGA <> 1 ' +
+                   'AND FO_PRODUCTO = ' + QuotedStr(CodigoProducto) +
+                   ' ORDER BY FO_UNDDESCARGA';
+        SQL.Add(SQLText);
+        Open;
+
+        // Si hay registros de detalle, imprimir reporte de presentaciones
+        if RecordCount > 0 then
+        begin
+          frpPresentaciones.ShowReport;
+        end;
+      end;
+
+      // Avanzar al siguiente registro de presentaciones
+      Next;
+    end;
+  end;
+end;
+
+end.

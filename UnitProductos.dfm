@@ -2171,8 +2171,6 @@ object formProductos: TformProductos
       Layout = blGlyphTop
       TabOrder = 0
       Visible = False
-      ExplicitLeft = 407
-      ExplicitTop = 0
     end
   end
   object pnl3: TPanel

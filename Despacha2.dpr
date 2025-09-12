@@ -1,4 +1,4 @@
-program Despacha2;
+   program Despacha2;
 
 uses
   Vcl.Forms,
@@ -26,27 +26,32 @@ uses
   UnitELiminar in 'UnitELiminar.pas' {formEliminar},
   UnitLicores in 'UnitLicores.pas' {formLicores},
   UnitClave in 'UnitClave.pas' {formClave},
-  UnitpProductosVendidos in 'UnitpProductosVendidos.pas' {formProductosVendidos};
+  UnitpProductosVendidos in 'UnitpProductosVendidos.pas' {formProductosVendidos},
+  UnitEditarCompra in 'UnitEditarCompra.pas' {FormEditarCompra},
+  UnitListaPrecios in 'UnitListaPrecios.pas' {FormLista},
+  unitvariables in 'unitvariables.pas',
+  UnitVariablesGlobales in 'UnitVariablesGlobales.pas',
+  UnitiCompras in 'UnitiCompras.pas' {formiCompras},
+  UnitFormProductos in 'UnitFormProductos.pas' {formArticulos},
+  UnitBuscarProductos in 'UnitBuscarProductos.pas' {formBuscarArticulo},
+  UnitPresentacion in 'UnitPresentacion.pas' {formPresentaciones},
+  UnitFactor in 'UnitFactor.pas' {formCambioTasa},
+  UnitImpresionCodebar in 'UnitImpresionCodebar.pas' {formCodebar};
 
 {$R *.res}
 
 begin
-  begin
   Application.Initialize;
   Application.MainFormOnTaskbar := True;
   Application.CreateForm(TForm2, Form2);
   Application.CreateForm(Td, d);
-  Application.CreateForm(TformProductosVendidos, formProductosVendidos);
   if TformAcceso.Execute then
   begin
-    Application.Initialize;
-    Application.CreateForm(Tform2, form2);
     Application.Run;
   end
   else
   begin
-     D.Destroy;
+    D.Destroy;
     Application.Terminate;
-  end;
   end;
 end.
