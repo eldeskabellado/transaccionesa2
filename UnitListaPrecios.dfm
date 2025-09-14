@@ -3,7 +3,7 @@ object FormLista: TFormLista
   Top = 0
   Caption = 'FormLista'
   ClientHeight = 484
-  ClientWidth = 326
+  ClientWidth = 470
   Color = clWhite
   Font.Charset = DEFAULT_CHARSET
   Font.Color = clWindowText
@@ -16,7 +16,7 @@ object FormLista: TFormLista
   PixelsPerInch = 96
   TextHeight = 13
   object lblTasa: TLabel
-    Left = 245
+    Left = 111
     Top = 3
     Width = 68
     Height = 23
@@ -30,7 +30,7 @@ object FormLista: TFormLista
     ParentFont = False
   end
   object lbl1: TLabel
-    Left = 143
+    Left = 8
     Top = 3
     Width = 51
     Height = 23
@@ -60,8 +60,8 @@ object FormLista: TFormLista
     OnClick = rgSeleccionClick
   end
   object rgFiltro: TRadioGroup
-    Left = 376
-    Top = 32
+    Left = 392
+    Top = 376
     Width = 258
     Height = 81
     Caption = 'Alcance'
@@ -73,8 +73,8 @@ object FormLista: TFormLista
     Visible = False
   end
   object rgDetalle: TRadioGroup
-    Left = 376
-    Top = 119
+    Left = 384
+    Top = 271
     Width = 257
     Height = 81
     Caption = 'Detalle Existencia    '
@@ -121,29 +121,38 @@ object FormLista: TFormLista
     TabOrder = 5
   end
   object btn1: TButton
-    Left = 165
-    Top = 53
-    Width = 153
+    Left = 319
+    Top = 108
+    Width = 143
     Height = 70
-    Caption = 'eCompras'
+    Caption = 'Subir catalogo'
     TabOrder = 6
     OnClick = btn1Click
   end
   object btn2: TButton
-    Left = 16
-    Top = 53
+    Left = 319
+    Top = 32
     Width = 143
     Height = 70
-    Caption = 'Clientes'
+    Caption = 'Subir Clientes'
     TabOrder = 7
     OnClick = btn2Click
   end
   object mmoLog: TMemo
     Left = 16
-    Top = 129
+    Top = 32
     Width = 297
-    Height = 347
+    Height = 444
     TabOrder = 8
+  end
+  object btn3: TButton
+    Left = 319
+    Top = 184
+    Width = 143
+    Height = 70
+    Caption = 'Descargar Pedidos'
+    TabOrder = 9
+    OnClick = btn3Click
   end
   object frLista: TfrxReport
     Version = '6.9.15'

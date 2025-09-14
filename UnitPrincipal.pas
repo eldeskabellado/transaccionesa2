@@ -37,13 +37,14 @@ type
     Compras1: TMenuItem;
     EditarCompra1: TMenuItem;
     menEiminar: TMenuItem;
+    btnPedido: TSpeedButton;
 
     procedure FormKeyDown(Sender: TObject; var Key: Word; Shift: TShiftState);
     procedure btn1Click(Sender: TObject);
     procedure btn2Click(Sender: TObject);
     procedure FormShow(Sender: TObject);
     procedure ApplicationEvents1Message(var Msg: tagMSG; var Handled: Boolean);
-    procedure btn3Click(Sender: TObject);
+    procedure btnPedidoClick(Sender: TObject);
     procedure btn4Click(Sender: TObject);
     procedure btn5Click(Sender: TObject);
     procedure btn6Click(Sender: TObject);
@@ -77,14 +78,23 @@ uses
   UnitDatos, UnitProceso, Unit_VER_FACTURA, UnitCXC, UnitEditFactura,
   UnitProductos, UnitEtiquetas, UnitCambiarCodigo, UnitELiminar, UnitLicores,
   UnitpProductosVendidos, unitvariables, UnitEditarCompra, UnitListaPrecios,
-  UnitVariablesGlobales, UnitiCompras, UnitFormProductos, UnitFactor, UnitImpresionCodebar, UnitConsulta;
+  UnitVariablesGlobales, UnitiCompras, UnitFormProductos, UnitFactor, UnitImpresionCodebar, UnitConsulta, UnitPedido;
 
 {$R *.dfm}
 
-procedure TForm2.btn3Click(Sender: TObject);
+procedure TForm2.btnPedidoClick(Sender: TObject);
+var
+  FormPedido: TFormPedido;
 begin
-  // Implementación vacía o funcionalidad que necesites
+ FormPedido := TFormPedido.Create(Self);
+  try
+    FormPedido.Caption:='Procesar Pedidos';
+    FormPedido.ShowModal;
+  finally
+    FormPedido.Free;
+  end;
 end;
+
 function MostrarFormularioClaveSupervisor(var ClaveSupervisor: string): Boolean;
 var
   Formulario: TForm;
@@ -229,6 +239,7 @@ var
 begin
   FormLista := TFormLista.Create(Self);
   try
+    FormLista.Caption:='Transacciones a iCompras';
     FormLista.ShowModal;
   finally
     FormLista.Free;
@@ -525,7 +536,7 @@ if FileExists('kairos.md') then
            h1:=GetFileHashMD5(LICA2);
            h1:=UpperCase(h1);
 
-            if   h1 <> h2 then
+            if   h1 = h2 then
 
             begin
                 MessageDlg(h1 + h2, mtCustom, [mbOK], 0);

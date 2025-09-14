@@ -1,0 +1,40 @@
+unit UnitLote;
+
+interface
+
+uses
+  Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants, System.Classes, Vcl.Graphics,
+  Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.ExtCtrls, Vcl.StdCtrls, Data.DB,
+  Vcl.Grids, Vcl.DBGrids, dbisamtb;
+
+type
+  TformLotes = class(TForm)
+    pnl1: TPanel;
+    pnl2: TPanel;
+    btnCancelar: TButton;
+    DBGrid1: TDBGrid;
+    sqLotes: TDBISAMQuery;
+    dsLotes: TDataSource;
+    procedure btnCancelarClick(Sender: TObject);
+  private
+    { Private declarations }
+  public
+    { Public declarations }
+  end;
+
+var
+  formLotes: TformLotes;
+
+implementation
+
+uses
+  UnitDatos;
+
+{$R *.dfm}
+
+procedure TformLotes.btnCancelarClick(Sender: TObject);
+begin
+Close;
+end;
+
+end.

@@ -1,0 +1,541 @@
+unit UnitPedido;
+
+interface
+
+uses
+  Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants, System.Classes, Vcl.Graphics,
+  Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.ExtCtrls, Vcl.StdCtrls, Vcl.Buttons,
+  Data.DB, Vcl.Grids, Vcl.DBGrids, dbisamtb, Datasnap.DBClient;
+
+type
+  TformPedido = class(TForm)
+    pnl1: TPanel;
+    pnl2: TPanel;
+    btnCargar: TBitBtn;
+    btnProcesar: TBitBtn;
+    pnlTop: TPanel;
+    pnlGrid: TPanel;
+    DBGrid1: TDBGrid;
+    lbl1: TLabel;
+    lbl2: TLabel;
+    lbl3: TLabel;
+    lblRif: TLabel;
+    lblCliente: TLabel;
+    sqCliente: TDBISAMQuery;
+    sqPedido: TDBISAMQuery;
+    sqDetallePedido: TDBISAMQuery;
+    lblPedido: TLabel;
+    lbl21: TLabel;
+    dlgcargar: TFileOpenDialog;
+    dsGrid: TDataSource;
+    procedure btnCargarClick(Sender: TObject);
+    procedure btnProcesarClick(Sender: TObject);
+  private
+    { Private declarations }
+    Pedido: string;
+    CodigoCliente: string;
+    cdsDetalle: TClientDataSet;
+    dsDetalle: TDataSource;
+    dlgAbrir: TOpenDialog;
+    procedure CargarDatosCliente(const CodigoCliente: string);
+    procedure ProcesarArchivoPedido(const NombreArchivo: string);
+    procedure CrearDataSetDetalle;
+    procedure CrearCabeceraPedido(const NumeroPedido: string; const CodigoCliente: string);
+    procedure CrearDetalleVenta(const AutoIncrementCabecera: Integer; const Linea: Integer; const NumeroPedido: string; const CodigoCliente: string);
+    function ValidarPedidoCargado: Boolean;
+  public
+    { Public declarations }
+    constructor Create(AOwner: TComponent); override;
+    destructor Destroy; override;
+  end;
+
+var
+  formPedido: TformPedido;
+
+implementation
+
+uses
+  UnitDatos, UnitVariablesGlobales;
+
+{$R *.dfm}
+
+procedure TformPedido.btnCargarClick(Sender: TObject);
+begin
+  try
+    if dlgAbrir.Execute then
+    begin
+      // Extraer el número del pedido del nombre del archivo sin extensión
+     // Pedido := ChangeFileExt(ExtractFileName(dlgAbrir.FileName), '');
+
+      ProcesarArchivoPedido(dlgAbrir.FileName);
+      ShowMessage('Archivo cargado correctamente: ' + IntToStr(cdsDetalle.RecordCount) + ' registros procesados.');
+    end;
+  except
+    on E: Exception do
+      ShowMessage('Error al cargar el archivo: ' + E.Message);
+  end;
+end;
+
+procedure TformPedido.CargarDatosCliente(const CodigoCliente: string);
+begin
+  sqCliente.Close;
+  sqCliente.SQL.Clear;
+  sqCliente.SQL.Add('SELECT FC_CODIGO, FC_DESCRIPCION, FC_RIF, FC_DIRECCION1, FC_DIRECCION2,');
+  sqCliente.SQL.Add('FC_TELEFONO, FC_CONTACTO, FC_ZONA, FC_DIASCREDITO, FC_STATUS,');
+  sqCliente.SQL.Add('FC_LIMITECREDITO, FC_DIACORTE, FC_MAXIMODESCUENTO, FC_SALDO,');
+  sqCliente.SQL.Add('FC_EMAIL, FC_PRECIODEFECTO, FC_SALDOMONEDA2, FC_VENDEDOR');
+  sqCliente.SQL.Add('FROM SClientes');
+  sqCliente.SQL.Add('WHERE FC_CODIGO = :codigo');
+  sqCliente.SQL.Add('ORDER BY FC_DESCRIPCION');
+
+  sqCliente.ParamByName('codigo').AsString := CodigoCliente;
+  sqCliente.Open;
+
+  if not sqCliente.IsEmpty then
+  begin
+    lblCliente.Caption := sqCliente.FieldByName('FC_DESCRIPCION').AsString;
+    lblRif.Caption := sqCliente.FieldByName('FC_RIF').AsString;
+  end
+  else
+  begin
+    lblCliente.Caption := 'Cliente no encontrado';
+    lblRif.Caption := '';
+  end;
+end;
+
+constructor TformPedido.Create(AOwner: TComponent);
+begin
+  inherited Create(AOwner);
+  cdsDetalle := TClientDataSet.Create(Self);
+  dsDetalle := TDataSource.Create(Self);
+  dsDetalle.DataSet := cdsDetalle;
+  DBGrid1.DataSource := dsDetalle;
+  CrearDataSetDetalle;
+
+  // Crear y configurar el diálogo de archivos
+  dlgAbrir := TOpenDialog.Create(Self);
+  dlgAbrir.Title := 'Seleccionar archivo de pedido';
+  dlgAbrir.DefaultExt := 'txt';
+  dlgAbrir.Filter := 'Archivos de texto (*.txt)|*.txt';
+  dlgAbrir.FilterIndex := 1;
+  dlgAbrir.InitialDir := 'C:\TP3\Descargas';
+end;
+
+destructor TformPedido.Destroy;
+begin
+  cdsDetalle.Free;
+  dsDetalle.Free;
+  dlgAbrir.Free;
+  inherited Destroy;
+end;
+
+procedure TformPedido.CrearDataSetDetalle;
+begin
+  cdsDetalle.Close;
+  cdsDetalle.FieldDefs.Clear;
+
+  cdsDetalle.FieldDefs.Add('CODPROD', ftString, 20);
+  cdsDetalle.FieldDefs.Add('DESPROD', ftString, 100);
+  cdsDetalle.FieldDefs.Add('CANTIDAD', ftFloat);
+  cdsDetalle.FieldDefs.Add('PRECIO', ftFloat);
+  cdsDetalle.FieldDefs.Add('SEDE', ftString, 50);
+  cdsDetalle.FieldDefs.Add('CODCLI', ftString, 20);
+  cdsDetalle.FieldDefs.Add('ID', ftInteger);
+  cdsDetalle.FieldDefs.Add('DCT', ftFloat);
+  cdsDetalle.FieldDefs.Add('DCREDITO', ftInteger);
+  cdsDetalle.FieldDefs.Add('ORIGEN', ftString, 10);
+  cdsDetalle.FieldDefs.Add('TIPO_PEDIDO', ftString, 5);
+  cdsDetalle.FieldDefs.Add('DA', ftFloat);
+  cdsDetalle.FieldDefs.Add('DA2', ftFloat);
+  cdsDetalle.FieldDefs.Add('DV', ftFloat);
+  cdsDetalle.FieldDefs.Add('DP', ftFloat);
+  cdsDetalle.FieldDefs.Add('DN_CT', ftFloat);
+  cdsDetalle.FieldDefs.Add('DNV_CT', ftFloat);
+  cdsDetalle.FieldDefs.Add('DA3', ftFloat);
+
+  cdsDetalle.CreateDataSet;
+end;
+
+procedure TformPedido.ProcesarArchivoPedido(const NombreArchivo: string);
+var
+  Archivo: TextFile;
+  Linea: string;
+  Campos: TStringList;
+  CodigoCliente: string;
+  PrimeraLinea: Boolean;
+  PrecioStr: string;
+  CantidadStr: string;
+  FormatSettings: TFormatSettings;
+begin
+  Campos := TStringList.Create;
+  try
+    Campos.Delimiter := '|';
+    Campos.StrictDelimiter := True;
+
+    // Configurar formato para números decimales
+    FormatSettings := TFormatSettings.Create;
+    FormatSettings.DecimalSeparator := '.';
+    FormatSettings.ThousandSeparator := ',';
+
+    // Limpiar el dataset
+    cdsDetalle.EmptyDataSet;
+
+    AssignFile(Archivo, NombreArchivo);
+    Reset(Archivo);
+    PrimeraLinea := True;
+
+    while not Eof(Archivo) do
+    begin
+      ReadLn(Archivo, Linea);
+
+      if Trim(Linea) <> '' then
+      begin
+        Campos.DelimitedText := Linea;
+
+        // Debug: mostrar cuántos campos se encontraron
+        if PrimeraLinea then
+          ShowMessage('Campos encontrados: ' + IntToStr(Campos.Count) + #13#10 +
+                     'Precio (campo 3): ' + Campos[3] + #13#10 +
+                     'Cantidad (campo 2): ' + Campos[2]);
+
+        if Campos.Count >= 18 then
+        begin
+          // En la primera línea obtenemos el código del cliente
+          if PrimeraLinea then
+          begin
+            Self.CodigoCliente := Campos[5]; // Posición 5 = CODCLI - Guardar en variable de clase
+            CargarDatosCliente(Self.CodigoCliente);
+            Pedido := Campos[6]; // ID del pedido
+            lblPedido.Caption := Pedido;
+            PrimeraLinea := False;
+          end;
+
+          // Preparar strings para conversión
+          CantidadStr := StringReplace(Campos[2], ',', '.', [rfReplaceAll]);
+          PrecioStr := StringReplace(Campos[3], ',', '.', [rfReplaceAll]);
+
+          // Insertar detalle en el dataset
+          cdsDetalle.Append;
+          cdsDetalle.FieldByName('CODPROD').AsString := Campos[0];
+          cdsDetalle.FieldByName('DESPROD').AsString := Campos[1];
+          cdsDetalle.FieldByName('CANTIDAD').AsFloat := StrToFloatDef(CantidadStr, 0, FormatSettings);
+          cdsDetalle.FieldByName('PRECIO').AsFloat := StrToFloatDef(PrecioStr, 0, FormatSettings);
+          cdsDetalle.FieldByName('SEDE').AsString := Campos[4];
+          cdsDetalle.FieldByName('CODCLI').AsString := Campos[5];
+          cdsDetalle.FieldByName('ID').AsInteger := StrToIntDef(Campos[6], 0);
+          cdsDetalle.FieldByName('DCT').AsFloat := StrToFloatDef(StringReplace(Campos[7], ',', '.', [rfReplaceAll]), 0, FormatSettings);
+          cdsDetalle.FieldByName('DCREDITO').AsInteger := StrToIntDef(Campos[8], 0);
+          cdsDetalle.FieldByName('ORIGEN').AsString := Campos[9];
+          cdsDetalle.FieldByName('TIPO_PEDIDO').AsString := Campos[10];
+          cdsDetalle.FieldByName('DA').AsFloat := StrToFloatDef(StringReplace(Campos[11], ',', '.', [rfReplaceAll]), 0, FormatSettings);
+          cdsDetalle.FieldByName('DA2').AsFloat := StrToFloatDef(StringReplace(Campos[12], ',', '.', [rfReplaceAll]), 0, FormatSettings);
+          cdsDetalle.FieldByName('DV').AsFloat := StrToFloatDef(StringReplace(Campos[13], ',', '.', [rfReplaceAll]), 0, FormatSettings);
+          cdsDetalle.FieldByName('DP').AsFloat := StrToFloatDef(StringReplace(Campos[14], ',', '.', [rfReplaceAll]), 0, FormatSettings);
+          cdsDetalle.FieldByName('DN_CT').AsFloat := StrToFloatDef(StringReplace(Campos[15], ',', '.', [rfReplaceAll]), 0, FormatSettings);
+          cdsDetalle.FieldByName('DNV_CT').AsFloat := StrToFloatDef(StringReplace(Campos[16], ',', '.', [rfReplaceAll]), 0, FormatSettings);
+          cdsDetalle.FieldByName('DA3').AsFloat := StrToFloatDef(StringReplace(Campos[17], ',', '.', [rfReplaceAll]), 0, FormatSettings);
+          cdsDetalle.Post;
+        end;
+      end;
+    end;
+
+    CloseFile(Archivo);
+
+  finally
+    Campos.Free;
+  end;
+end;
+
+procedure TformPedido.btnProcesarClick(Sender: TObject);
+begin
+  try
+    // Validar que hay un pedido cargado
+    if not ValidarPedidoCargado then
+    begin
+      ShowMessage('Debe cargar un pedido antes de procesarlo.');
+      Exit;
+    end;
+
+    // Crear la cabecera del pedido
+    CrearCabeceraPedido(Pedido, CodigoCliente);
+
+  except
+    on E: Exception do
+      ShowMessage('Error al procesar el pedido: ' + E.Message);
+  end;
+end;
+
+function TformPedido.ValidarPedidoCargado: Boolean;
+begin
+  Result := False;
+
+  // Verificar que hay datos cargados
+  if cdsDetalle.RecordCount = 0 then
+  begin
+    ShowMessage('No hay datos de pedido cargados.');
+    Exit;
+  end;
+
+  // Verificar que se tiene el número de pedido
+  if Trim(Pedido) = '' then
+  begin
+    ShowMessage('No se ha identificado el número de pedido.');
+    Exit;
+  end;
+
+  // Verificar que se tiene el código del cliente
+  if Trim(CodigoCliente) = '' then
+  begin
+    ShowMessage('No se ha identificado el código del cliente.');
+    Exit;
+  end;
+
+  // Verificar que el cliente fue encontrado
+  if lblCliente.Caption = 'Cliente no encontrado' then
+  begin
+    ShowMessage('El cliente no fue encontrado en la base de datos.');
+    Exit;
+  end;
+
+  Result := True;
+end;
+
+procedure TformPedido.CrearCabeceraPedido(const NumeroPedido: string; const CodigoCliente: string);
+var
+  TotalItems: Integer;
+  TotalBruto: Currency;
+  TotalNeto: Currency;
+  AutoIncrement: Integer;
+  LineaDetalle: Integer;
+begin
+  // Calcular totales del detalle
+  TotalItems := cdsDetalle.RecordCount;
+  TotalBruto := 0;
+
+  cdsDetalle.First;
+  while not cdsDetalle.Eof do
+  begin
+    TotalBruto := TotalBruto + (cdsDetalle.FieldByName('CANTIDAD').AsFloat * cdsDetalle.FieldByName('PRECIO').AsFloat);
+    cdsDetalle.Next;
+  end;
+
+  TotalNeto := TotalBruto; // Sin descuentos por ahora
+
+  // Insertar cabecera del pedido
+  sqPedido.Close;
+  sqPedido.SQL.Clear;
+  sqPedido.SQL.Add('INSERT INTO SOperacionInv (');
+  sqPedido.SQL.Add('FTI_DOCUMENTO, FTI_TIPO, FTI_STATUS, FTI_VISIBLE, FTI_FECHAEMISION,');
+  sqPedido.SQL.Add('FTI_DEPOSITOSOURCE, FTI_DEPOSITODESTINO, FTI_TOTALITEMS, FTI_TOTALITEMSINICIAL, FTI_MONEDA, FTI_FACTORCAMBIO,');
+  sqPedido.SQL.Add('FTI_TOTALCOSTO, FTI_TOTALCOSTOREAL, FTI_TOTALBRUTO, FTI_TOTALNETO, FTI_BASEIMPONIBLE, FTI_TOTALPRECIO, FTI_CLASIFICACION,');
+  sqPedido.SQL.Add('FTI_DESCRIPCLASIFY, FTI_RIFCLIENTE, FTI_PROPOSITO, FTI_RESPONSABLE, FTI_USER, FTI_AUTORIZADOPOR,');
+  sqPedido.SQL.Add('FTI_HORA, FTI_TIPOPRECIO, FTI_EXCENTO, FTI_PERSONACONTACTO, FTI_TELEFONOCONTACTO,');
+  sqPedido.SQL.Add('FTI_DIRECCIONDESPACHO, FTI_DIASVENCIMIENTO, FTI_FECHAVENCIDO, FTI_TIENELOTES, FTI_UPDATEITEMS,');
+  sqPedido.SQL.Add('FTI_SALDOOPERACION, FTI_MONEDAPAGO, FTI_MACHINENAME, FTI_FACTORREFERENCIA, FTI_COSTODEVENTA,');
+  sqPedido.SQL.Add('FTI_VENDEDORASIGNADO, FTI_ZONAVENTA, FTI_PENDINGFORPRINT, FTI_MULTIPLEVENDEDOR, FTI_MULTIPLEDEPOSITO,');
+  sqPedido.SQL.Add('FTI_TIMESAVED, FTI_DESCUENTO1PORCENT, FTI_DESCUENTO1MONTO, FTI_DESCUENTO1ORIGEN,');
+  sqPedido.SQL.Add('FTI_DESCUENTO2PORCENT, FTI_DESCUENTO2MONTO, FTI_DESCUENTO2ORIGEN, FTI_DESCUENTOPARCIAL,');
+  sqPedido.SQL.Add('FTI_FLETEPORCENT, FTI_FLETEMONEDA, FTI_FLETEORIGEN, FTI_BASEIMPONIBLE2,');
+  sqPedido.SQL.Add('FTI_IMPUESTO1PORCENT, FTI_IMPUESTO1MONTO, FTI_IMPUESTO2PORCENT, FTI_IMPUESTO2MONTO, FTI_DESCUENTOCUADRE');
+  sqPedido.SQL.Add(') VALUES (');
+  sqPedido.SQL.Add(':documento, :tipo, :status, :visible, :fechaemision,');
+  sqPedido.SQL.Add(':depositosource, :depositodestino, :totalitems, :totalitemsinicial, :moneda, :factorcambio,');
+  sqPedido.SQL.Add(':totalcosto, :totalcostoreal, :totalbruto, :totalneto, :baseimponible, :totalprecio, :clasificacion,');
+  sqPedido.SQL.Add(':descripclasify, :rifcliente, :proposito, :responsable, :user, :autorizadopor,');
+  sqPedido.SQL.Add(':hora, :tipoprecio, :excento, :personacontacto, :telefonocontacto,');
+  sqPedido.SQL.Add(':direcciondespacho, :diasvencimiento, :fechavencido, :tienelotes, :updateitems,');
+  sqPedido.SQL.Add(':saldooperacion, :monedapago, :machinename, :factorreferencia, :costodeventa,');
+  sqPedido.SQL.Add(':vendedorasignado, :zonaventa, :pendingforprint, :multiplevendedor, :multipledeposito,');
+  sqPedido.SQL.Add(':timesaved, :descuento1porcent, :descuento1monto, :descuento1origen,');
+  sqPedido.SQL.Add(':descuento2porcent, :descuento2monto, :descuento2origen, :descuentoparcial,');
+  sqPedido.SQL.Add(':fleteporcent, :fletemoneda, :fleteorigen, :baseimponible2,');
+  sqPedido.SQL.Add(':impuesto1porcent, :impuesto1monto, :impuesto2porcent, :impuesto2monto, :descuentocuadre');
+  sqPedido.SQL.Add(')');
+
+  // Asignar parámetros mejorados
+  sqPedido.ParamByName('documento').AsString := NumeroPedido;
+  sqPedido.ParamByName('tipo').AsInteger := 9; // Tipo de pedido
+  sqPedido.ParamByName('status').AsInteger := 4; // Status como en el ejemplo
+  sqPedido.ParamByName('visible').AsBoolean := True;
+  sqPedido.ParamByName('fechaemision').AsDateTime := Now;
+  sqPedido.ParamByName('depositosource').AsInteger := 1; // Valor por defecto
+  sqPedido.ParamByName('depositodestino').AsInteger := 1; // Valor por defecto
+  sqPedido.ParamByName('totalitems').AsInteger := TotalItems;
+  sqPedido.ParamByName('totalitemsinicial').AsInteger := TotalItems;
+  sqPedido.ParamByName('moneda').AsInteger := 1; // Moneda local
+  sqPedido.ParamByName('factorcambio').AsFloat := 1.0;
+  sqPedido.ParamByName('totalcosto').AsCurrency := TotalBruto; // Costo total
+  sqPedido.ParamByName('totalcostoreal').AsCurrency := TotalBruto; // Costo real
+  sqPedido.ParamByName('totalbruto').AsCurrency := TotalBruto;
+  sqPedido.ParamByName('totalneto').AsCurrency := TotalNeto;
+  sqPedido.ParamByName('baseimponible').AsCurrency := TotalBruto;
+  sqPedido.ParamByName('totalprecio').AsCurrency := TotalNeto;
+  sqPedido.ParamByName('clasificacion').AsInteger := 0; // Valor por defecto
+  sqPedido.ParamByName('descripclasify').AsString := '<Ninguna>'; // Valor por defecto
+  sqPedido.ParamByName('rifcliente').AsString := CodigoCliente;
+  sqPedido.ParamByName('proposito').AsString := 'PEDIDO ICOMPRAS';
+  sqPedido.ParamByName('responsable').AsString := CodigoCliente; // RIF o código del cliente
+  sqPedido.ParamByName('user').AsInteger := 1; // Usuario del sistema
+  sqPedido.ParamByName('autorizadopor').AsString := 'Crédito'; // Como en el ejemplo
+  sqPedido.ParamByName('hora').AsTime := Time;
+  sqPedido.ParamByName('tipoprecio').AsInteger := 1; // Precio de venta
+  sqPedido.ParamByName('excento').AsBoolean := False;
+  sqPedido.ParamByName('personacontacto').AsString := lblCliente.Caption;
+  // Obtener teléfono del cliente desde el query
+  if not sqCliente.IsEmpty then
+    sqPedido.ParamByName('telefonocontacto').AsString := sqCliente.FieldByName('FC_TELEFONO').AsString
+  else
+    sqPedido.ParamByName('telefonocontacto').AsString := '';
+  // Obtener dirección del cliente desde el query
+  if not sqCliente.IsEmpty then
+    sqPedido.ParamByName('direcciondespacho').AsString := sqCliente.FieldByName('FC_DIRECCION1').AsString
+  else
+    sqPedido.ParamByName('direcciondespacho').AsString := '';
+  sqPedido.ParamByName('diasvencimiento').AsInteger := 15; // Como en el ejemplo
+  sqPedido.ParamByName('fechavencido').AsDateTime := Now + 15; // 15 días de vencimiento
+  sqPedido.ParamByName('tienelotes').AsBoolean := True; // Como solicitaste
+  sqPedido.ParamByName('saldooperacion').AsCurrency := TotalNeto; // Monto total
+  sqPedido.ParamByName('monedapago').AsInteger := 1; // 1 para BS, 2 para $
+  sqPedido.ParamByName('machinename').AsString := GetEnvironmentVariable('COMPUTERNAME'); // Nombre del equipo
+  sqPedido.ParamByName('factorreferencia').AsFloat := 1.0; // Valor por defecto, ajustar según sea necesario
+  sqPedido.ParamByName('updateitems').AsBoolean := True; // Como en el ejemplo
+  sqPedido.ParamByName('costodeventa').AsCurrency := TotalBruto; // Costo de venta
+  sqPedido.ParamByName('vendedorasignado').AsString := '31'; // Como en el ejemplo
+  sqPedido.ParamByName('zonaventa').AsString := '01'; // Como en el ejemplo
+  sqPedido.ParamByName('pendingforprint').AsBoolean := False; // Por defecto
+  sqPedido.ParamByName('multiplevendedor').AsBoolean := False; // Por defecto
+  sqPedido.ParamByName('multipledeposito').AsBoolean := False; // Por defecto
+  sqPedido.ParamByName('timesaved').AsInteger := 0; // Por defecto
+  // Parámetros de descuentos (todos en 0 por defecto)
+  sqPedido.ParamByName('descuento1porcent').AsCurrency := 0;
+  sqPedido.ParamByName('descuento1monto').AsCurrency := 0;
+  sqPedido.ParamByName('descuento1origen').AsInteger := 1;
+  sqPedido.ParamByName('descuento2porcent').AsCurrency := 0;
+  sqPedido.ParamByName('descuento2monto').AsCurrency := 0;
+  sqPedido.ParamByName('descuento2origen').AsInteger := 1;
+  sqPedido.ParamByName('descuentoparcial').AsCurrency := 0;
+  // Parámetros de flete (todos en 0 por defecto)
+  sqPedido.ParamByName('fleteporcent').AsCurrency := 0;
+  sqPedido.ParamByName('fletemoneda').AsCurrency := 0;
+  sqPedido.ParamByName('fleteorigen').AsInteger := 1;
+  sqPedido.ParamByName('baseimponible2').AsCurrency := 0;
+  // Parámetros de impuestos (todos en 0 por defecto)
+  sqPedido.ParamByName('impuesto1porcent').AsCurrency := 16; // IVA 16%
+  sqPedido.ParamByName('impuesto1monto').AsCurrency := TotalBruto * 0.16; // Monto del IVA
+  sqPedido.ParamByName('impuesto2porcent').AsCurrency := 0;
+  sqPedido.ParamByName('impuesto2monto').AsCurrency := 0;
+  sqPedido.ParamByName('descuentocuadre').AsCurrency := 0;
+
+  sqPedido.ExecSQL;
+
+  // Obtener el AutoIncrement de la cabecera recién insertada
+  sqPedido.Close;
+  sqPedido.SQL.Clear;
+  sqPedido.SQL.Add('SELECT FTI_AUTOINCREMENT FROM SOperacionInv WHERE FTI_DOCUMENTO = :documento ORDER BY FTI_AUTOINCREMENT DESC');
+  sqPedido.ParamByName('documento').AsString := NumeroPedido;
+  sqPedido.Open;
+  AutoIncrement := sqPedido.FieldByName('FTI_AUTOINCREMENT').AsInteger;
+  sqPedido.Close;
+
+  // Crear el detalle del pedido
+  LineaDetalle := 0;
+  cdsDetalle.First;
+  while not cdsDetalle.Eof do
+  begin
+    CrearDetalleVenta(AutoIncrement, LineaDetalle, NumeroPedido, CodigoCliente);
+    Inc(LineaDetalle);
+    cdsDetalle.Next;
+  end;
+
+  ShowMessage('Pedido procesado correctamente.' + #13#10 +
+              'Documento: ' + NumeroPedido + #13#10 +
+              'Total Items: ' + IntToStr(TotalItems) + #13#10 +
+              'Total Bruto: ' + FormatCurr('#,##0.00', TotalBruto) + #13#10 +
+              'AutoIncrement: ' + IntToStr(AutoIncrement));
+end;
+
+procedure TformPedido.CrearDetalleVenta(const AutoIncrementCabecera: Integer; const Linea: Integer; const NumeroPedido: string; const CodigoCliente: string);
+var
+  PrecioUnitario: Currency;
+  CantidadItem: Double;
+  TotalLinea: Currency;
+begin
+  PrecioUnitario := cdsDetalle.FieldByName('PRECIO').AsCurrency;
+  CantidadItem := cdsDetalle.FieldByName('CANTIDAD').AsFloat;
+  TotalLinea := PrecioUnitario * CantidadItem;
+
+  // Insertar detalle en SDetalleVenta
+  sqDetallePedido.Close;
+  sqDetallePedido.SQL.Clear;
+  sqDetallePedido.SQL.Add('INSERT INTO SDetalleVenta (');
+  sqDetallePedido.SQL.Add('FDI_TIPOOPERACION, FDI_CODIGO, FDI_LINEA, FDI_DOCUMENTO, FDI_CLIENTEPROVEEDOR,');
+  sqDetallePedido.SQL.Add('FDI_STATUS, FDI_VISIBLE, FDI_COSTO, FDI_CANTIDAD, FDI_CANTIDADPENDIENTE,');
+  sqDetallePedido.SQL.Add('FDI_LOTE, FDI_LOTERANDOM, FDI_DEPOSITOSOURCE, FDI_OPERACION_AUTOINCREMENT, FDI_USASERIALES, FDI_USADEPOSITOS,');
+  sqDetallePedido.SQL.Add('FDI_COSTOOPERACION, FDI_MONEDA, FDI_FACTORCAMBIO, FDI_IMPUESTO1, FDI_PORCENTIMPUESTO1,');
+  sqDetallePedido.SQL.Add('FDI_ORIGENPRICE, FDI_PRECIOSINDESCUENTO, FDI_PRECIOCONDESCUENTO, FDI_PRECIODEVENTA,');
+  sqDetallePedido.SQL.Add('FDI_COMISIONFIJA, FDI_COMISIONFIJAP, FDI_UNDDESCARGA, FDI_UNDCAPACIDAD, FDI_UNDDETALLADA,');
+  sqDetallePedido.SQL.Add('FDI_PARTESUSANSERIALES, FDI_COSTODEVENTAS, FDI_VENDEDORASIGNADO, FDI_MONTOCOMISION,');
+  sqDetallePedido.SQL.Add('FDI_PRECIOBASECOMISION, FDI_COMISIONBLOQUEADA, FDI_COMISIONYAPAGADA, FDI_TIPODECOMISION,');
+  sqDetallePedido.SQL.Add('FDI_PRICEFORCOMISION, FDI_FECHAOPERACION, FDI_USER, FDI_PORCENTDESCUENTO1, FDI_PORCENTDESCUENTO2');
+  sqDetallePedido.SQL.Add(') VALUES (');
+  sqDetallePedido.SQL.Add(':tipooperacion, :codigo, :linea, :documento, :clienteproveedor,');
+  sqDetallePedido.SQL.Add(':status, :visible, :costo, :cantidad, :cantidadpendiente,');
+  sqDetallePedido.SQL.Add(':lote, :loterandom, :depositosource, :operacion_autoincrement, :usaseriales, :usadepositos,');
+  sqDetallePedido.SQL.Add(':costooperacion, :moneda, :factorcambio, :impuesto1, :porcentimpuesto1,');
+  sqDetallePedido.SQL.Add(':origenprice, :preciosindescuento, :preciocondescuento, :preciodeventa,');
+  sqDetallePedido.SQL.Add(':comisionfija, :comisionfijap, :unddescarga, :undcapacidad, :unddetallada,');
+  sqDetallePedido.SQL.Add(':partesusanseriales, :costodeventas, :vendedorasignado, :montocomision,');
+  sqDetallePedido.SQL.Add(':preciobasecomision, :comisionbloqueada, :comisionyapagada, :tipodecomision,');
+  sqDetallePedido.SQL.Add(':priceforcomision, :fechaoperacion, :user, :porcentdescuento1, :porcentdescuento2');
+  sqDetallePedido.SQL.Add(')');
+
+  // Asignar parámetros basados en el ejemplo del sistema original
+  sqDetallePedido.ParamByName('tipooperacion').AsInteger := 9; // Mismo tipo que la cabecera
+  sqDetallePedido.ParamByName('codigo').AsString := cdsDetalle.FieldByName('CODPROD').AsString;
+  sqDetallePedido.ParamByName('linea').AsInteger := Linea;
+  sqDetallePedido.ParamByName('documento').AsString := NumeroPedido;
+  sqDetallePedido.ParamByName('clienteproveedor').AsString := CodigoCliente;
+  sqDetallePedido.ParamByName('status').AsInteger := 4; // Mismo status que la cabecera
+  sqDetallePedido.ParamByName('visible').AsBoolean := True;
+  sqDetallePedido.ParamByName('costo').AsCurrency := PrecioUnitario;
+  sqDetallePedido.ParamByName('cantidad').AsFloat := CantidadItem;
+  sqDetallePedido.ParamByName('cantidadpendiente').AsFloat := CantidadItem;
+  sqDetallePedido.ParamByName('lote').AsString := '000000'; // Valor por defecto
+  sqDetallePedido.ParamByName('loterandom').AsString := '000000'; // Valor por defecto
+  sqDetallePedido.ParamByName('depositosource').AsInteger := 1; // Depósito principal
+  sqDetallePedido.ParamByName('operacion_autoincrement').AsInteger := AutoIncrementCabecera;
+  sqDetallePedido.ParamByName('usaseriales').AsBoolean := False;
+  sqDetallePedido.ParamByName('usadepositos').AsBoolean := True;
+  sqDetallePedido.ParamByName('costooperacion').AsCurrency := PrecioUnitario;
+  sqDetallePedido.ParamByName('moneda').AsInteger := 1;
+  sqDetallePedido.ParamByName('factorcambio').AsFloat := 1.0;
+  sqDetallePedido.ParamByName('impuesto1').AsBoolean := False;
+  sqDetallePedido.ParamByName('porcentimpuesto1').AsInteger := 0;
+  sqDetallePedido.ParamByName('origenprice').AsInteger := 3; // Como en el ejemplo
+  sqDetallePedido.ParamByName('preciosindescuento').AsCurrency := TotalLinea;
+  sqDetallePedido.ParamByName('preciocondescuento').AsCurrency := TotalLinea;
+  sqDetallePedido.ParamByName('preciodeventa').AsCurrency := TotalLinea;
+  sqDetallePedido.ParamByName('comisionfija').AsBoolean := False;
+  sqDetallePedido.ParamByName('comisionfijap').AsBoolean := False;
+  sqDetallePedido.ParamByName('unddescarga').AsInteger := 1;
+  sqDetallePedido.ParamByName('undcapacidad').AsInteger := 1;
+  sqDetallePedido.ParamByName('unddetallada').AsBoolean := False;
+  sqDetallePedido.ParamByName('partesusanseriales').AsBoolean := False;
+  sqDetallePedido.ParamByName('costodeventas').AsCurrency := PrecioUnitario;
+  sqDetallePedido.ParamByName('vendedorasignado').AsString := '13'; // Como en el ejemplo
+  sqDetallePedido.ParamByName('montocomision').AsCurrency := 0;
+  sqDetallePedido.ParamByName('preciobasecomision').AsCurrency := TotalLinea;
+  sqDetallePedido.ParamByName('comisionbloqueada').AsBoolean := False;
+  sqDetallePedido.ParamByName('comisionyapagada').AsBoolean := False;
+  sqDetallePedido.ParamByName('tipodecomision').AsInteger := 0;
+  sqDetallePedido.ParamByName('priceforcomision').AsInteger := 1;
+  sqDetallePedido.ParamByName('fechaoperacion').AsDateTime := Now;
+  sqDetallePedido.ParamByName('user').AsInteger := 1;
+  sqDetallePedido.ParamByName('porcentdescuento1').AsFloat := 0;
+  sqDetallePedido.ParamByName('porcentdescuento2').AsFloat := 0;
+
+  sqDetallePedido.ExecSQL;
+end;
+
+end.
+

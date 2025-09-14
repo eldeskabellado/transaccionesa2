@@ -1,0 +1,318 @@
+object formPedido: TformPedido
+  Left = 0
+  Top = 0
+  Caption = 'formPedido'
+  ClientHeight = 579
+  ClientWidth = 1112
+  Color = clWhite
+  Font.Charset = DEFAULT_CHARSET
+  Font.Color = clWindowText
+  Font.Height = -11
+  Font.Name = 'Tahoma'
+  Font.Style = []
+  OldCreateOrder = False
+  Position = poMainFormCenter
+  PixelsPerInch = 96
+  TextHeight = 13
+  object lbl1: TLabel
+    Left = 512
+    Top = 304
+    Width = 16
+    Height = 13
+    Caption = 'lbl1'
+  end
+  object pnl1: TPanel
+    Left = 895
+    Top = 0
+    Width = 217
+    Height = 579
+    Align = alRight
+    BevelOuter = bvNone
+    TabOrder = 0
+    object btnCargar: TBitBtn
+      Left = 0
+      Top = 0
+      Width = 217
+      Height = 73
+      Align = alTop
+      Caption = 'Cargar'
+      TabOrder = 0
+      OnClick = btnCargarClick
+    end
+    object btnProcesar: TBitBtn
+      Left = 0
+      Top = 504
+      Width = 217
+      Height = 75
+      Align = alBottom
+      Caption = 'Procesar'
+      TabOrder = 1
+      OnClick = btnProcesarClick
+    end
+  end
+  object pnl2: TPanel
+    Left = 0
+    Top = 0
+    Width = 895
+    Height = 579
+    Align = alClient
+    BevelOuter = bvNone
+    TabOrder = 1
+    object pnlTop: TPanel
+      Left = 0
+      Top = 0
+      Width = 895
+      Height = 73
+      Align = alTop
+      BevelOuter = bvNone
+      TabOrder = 0
+      object lbl2: TLabel
+        Left = 24
+        Top = 45
+        Width = 34
+        Height = 19
+        Caption = 'RIF:'
+        Font.Charset = DEFAULT_CHARSET
+        Font.Color = clWindowText
+        Font.Height = -16
+        Font.Name = 'Tahoma'
+        Font.Style = [fsBold]
+        ParentFont = False
+      end
+      object lbl3: TLabel
+        Left = 24
+        Top = 14
+        Width = 76
+        Height = 19
+        Caption = 'CLIENTE:'
+        Font.Charset = DEFAULT_CHARSET
+        Font.Color = clWindowText
+        Font.Height = -16
+        Font.Name = 'Tahoma'
+        Font.Style = [fsBold]
+        ParentFont = False
+      end
+      object lblRif: TLabel
+        Left = 106
+        Top = 45
+        Width = 7
+        Height = 19
+        Caption = '-'
+        Font.Charset = DEFAULT_CHARSET
+        Font.Color = clWindowText
+        Font.Height = -16
+        Font.Name = 'Tahoma'
+        Font.Style = [fsBold]
+        ParentFont = False
+      end
+      object lblCliente: TLabel
+        Left = 106
+        Top = 14
+        Width = 7
+        Height = 19
+        Caption = '-'
+        Font.Charset = DEFAULT_CHARSET
+        Font.Color = clWindowText
+        Font.Height = -16
+        Font.Name = 'Tahoma'
+        Font.Style = [fsBold]
+        ParentFont = False
+      end
+      object lblPedido: TLabel
+        Left = 354
+        Top = 45
+        Width = 7
+        Height = 19
+        Caption = '-'
+        Font.Charset = DEFAULT_CHARSET
+        Font.Color = clRed
+        Font.Height = -16
+        Font.Name = 'Tahoma'
+        Font.Style = [fsBold]
+        ParentFont = False
+      end
+      object lbl21: TLabel
+        Left = 272
+        Top = 45
+        Width = 70
+        Height = 19
+        Caption = 'PEDIDO:'
+        Font.Charset = DEFAULT_CHARSET
+        Font.Color = clWindowText
+        Font.Height = -16
+        Font.Name = 'Tahoma'
+        Font.Style = [fsBold]
+        ParentFont = False
+      end
+    end
+    object pnlGrid: TPanel
+      Left = 0
+      Top = 73
+      Width = 895
+      Height = 506
+      Align = alClient
+      BevelOuter = bvNone
+      TabOrder = 1
+      object DBGrid1: TDBGrid
+        Left = 0
+        Top = 0
+        Width = 895
+        Height = 506
+        Align = alClient
+        DataSource = dsGrid
+        TabOrder = 0
+        TitleFont.Charset = DEFAULT_CHARSET
+        TitleFont.Color = clWindowText
+        TitleFont.Height = -11
+        TitleFont.Name = 'Tahoma'
+        TitleFont.Style = []
+        OnDblClick = DBGrid1DblClick
+        Columns = <
+          item
+            Expanded = False
+            FieldName = 'CODPROD'
+            Title.Caption = 'CODIGO'
+            Width = 98
+            Visible = True
+          end
+          item
+            Expanded = False
+            FieldName = 'DESPROD'
+            Title.Alignment = taCenter
+            Title.Caption = 'DESCRIPCION'
+            Width = 401
+            Visible = True
+          end
+          item
+            Expanded = False
+            FieldName = 'CANTIDAD'
+            Width = 48
+            Visible = True
+          end
+          item
+            Expanded = False
+            FieldName = 'PRECIO'
+            Title.Caption = 'PRECIO UNIT'
+            Width = 75
+            Visible = True
+          end
+          item
+            Expanded = False
+            FieldName = 'PORCENTAJE_IVA'
+            Title.Caption = 'IVA'
+            Width = 33
+            Visible = True
+          end
+          item
+            Expanded = False
+            FieldName = 'LOTE'
+            Width = 116
+            Visible = True
+          end>
+      end
+    end
+  end
+  object sqCliente: TDBISAMQuery
+    DatabaseName = 'data2'
+    EngineVersion = '4.49 Build 4'
+    SQL.Strings = (
+      'SELECT'
+      '  FC_CODIGO,'
+      '  FC_DESCRIPCION,'
+      '  FC_RIF,'
+      '  FC_DIRECCION1,'
+      '  FC_DIRECCION2,'
+      '  FC_TELEFONO,'
+      '  FC_CONTACTO,'
+      '  FC_ZONA,'
+      '  FC_DIASCREDITO,'
+      '  FC_STATUS,'
+      '  FC_LIMITECREDITO,'
+      '  FC_DIACORTE,'
+      '  FC_MAXIMODESCUENTO,'
+      '  FC_SALDO,'
+      '  FC_EMAIL,'
+      '  FC_PRECIODEFECTO,'
+      '  FC_SALDOMONEDA2,'
+      '  FC_VENDEDOR'
+      'FROM Sclientes'
+      'WHERE FC_CODIGO = :codigo'
+      'ORDER BY FC_DESCRIPCION')
+    Params = <
+      item
+        DataType = ftUnknown
+        Name = 'codigo'
+      end>
+    Left = 848
+    Top = 232
+    ParamData = <
+      item
+        DataType = ftUnknown
+        Name = 'codigo'
+      end>
+  end
+  object sqPedido: TDBISAMQuery
+    DatabaseName = 'data2'
+    EngineVersion = '4.49 Build 4'
+    Params = <>
+    Left = 848
+    Top = 296
+  end
+  object sqDetallePedido: TDBISAMQuery
+    DatabaseName = 'data2'
+    EngineVersion = '4.49 Build 4'
+    Params = <>
+    Left = 920
+    Top = 304
+  end
+  object dlgcargar: TFileOpenDialog
+    FavoriteLinks = <>
+    FileTypes = <>
+    Options = []
+    Left = 848
+    Top = 120
+  end
+  object dsGrid: TDataSource
+    Left = 888
+    Top = 440
+  end
+  object sqArticulos: TDBISAMQuery
+    DatabaseName = 'data2'
+    EngineVersion = '4.49 Build 4'
+    SQL.Strings = (
+      'SELECT'
+      '  FC_CODIGO,'
+      '  FC_DESCRIPCION,'
+      '  FC_RIF,'
+      '  FC_DIRECCION1,'
+      '  FC_DIRECCION2,'
+      '  FC_TELEFONO,'
+      '  FC_CONTACTO,'
+      '  FC_ZONA,'
+      '  FC_DIASCREDITO,'
+      '  FC_STATUS,'
+      '  FC_LIMITECREDITO,'
+      '  FC_DIACORTE,'
+      '  FC_MAXIMODESCUENTO,'
+      '  FC_SALDO,'
+      '  FC_EMAIL,'
+      '  FC_PRECIODEFECTO,'
+      '  FC_SALDOMONEDA2,'
+      '  FC_VENDEDOR'
+      'FROM Sclientes'
+      'WHERE FC_CODIGO = :codigo'
+      'ORDER BY FC_DESCRIPCION')
+    Params = <
+      item
+        DataType = ftUnknown
+        Name = 'codigo'
+      end>
+    Left = 920
+    Top = 192
+    ParamData = <
+      item
+        DataType = ftUnknown
+        Name = 'codigo'
+      end>
+  end
+end

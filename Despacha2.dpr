@@ -36,7 +36,9 @@ uses
   UnitBuscarProductos in 'UnitBuscarProductos.pas' {formBuscarArticulo},
   UnitPresentacion in 'UnitPresentacion.pas' {formPresentaciones},
   UnitFactor in 'UnitFactor.pas' {formCambioTasa},
-  UnitImpresionCodebar in 'UnitImpresionCodebar.pas' {formCodebar};
+  UnitImpresionCodebar in 'UnitImpresionCodebar.pas' {formCodebar},
+  UnitPedido in 'UnitPedido.pas' {formPedido},
+  UnitLote in 'UnitLote.pas' {formLotes};
 
 {$R *.res}
 
@@ -45,6 +47,8 @@ begin
   Application.MainFormOnTaskbar := True;
   Application.CreateForm(TForm2, Form2);
   Application.CreateForm(Td, d);
+  Application.CreateForm(TformPedido, formPedido);
+  Application.CreateForm(TformLotes, formLotes);
   if TformAcceso.Execute then
   begin
     Application.Run;

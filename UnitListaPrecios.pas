@@ -46,6 +46,25 @@ type
     procedure AgregarLog(const Mensaje: string);
   end;
 
+  // Thread para descargar archivos FTP
+  TDescargaThread = class(TThread)
+  private
+    FFormulario: TFormLista;
+    FMensaje: string;
+    FDirectorioLocal: string;
+    FDirectorioRemoto: string;
+    procedure ActualizarLog;
+    procedure HabilitarBoton;
+  protected
+    procedure Execute; override;
+  public
+    constructor Create(AFormulario: TFormLista; DirectorioLocal: string; DirectorioRemoto: string = 'salida');
+    procedure AgregarLog(const Mensaje: string);
+  end;
+
+  // Thread para descargar archivos FTP
+
+
   TFormLista = class(TForm)
     rgSeleccion: TRadioGroup;
     rgFiltro: TRadioGroup;
@@ -61,6 +80,7 @@ type
     dsMarca: TDataSource;
     btn1: TButton;
     btn2: TButton;
+    btn3: TButton;
     idftp1: TIdFTP;
     lblTasa: TLabel;
     lbl1: TLabel;
@@ -71,11 +91,13 @@ type
     procedure rgSeleccionClick(Sender: TObject);
     procedure btn1Click(Sender: TObject);
     procedure btn2Click(Sender: TObject);
+    procedure btn3Click(Sender: TObject);
     procedure FormShow(Sender: TObject);  // Agregar este evento para el botón TP3
 
   private
     { Private declarations }
     function SubirArchivoFTP(RutaCompleta: string; DirectorioRemoto: string): Boolean;
+    function DescargarArchivosFTP(DirectorioLocal: string; DirectorioRemoto: string = 'salida'): Boolean;
 
   public
     { Public declarations }
@@ -240,12 +262,40 @@ begin
   // Marcar que hay un proceso en ejecución
   ProcesoEnEjecucion := True;
 
-  // Deshabilitar AMBOS botones para evitar múltiples ejecuciones
+  // Deshabilitar TODOS los botones para evitar múltiples ejecuciones
   btn1.Enabled := False;
   btn2.Enabled := False;
+  btn3.Enabled := False;
 
   // Crear y ejecutar thread
   Thread := TClientesThread.Create(Self);
+  Thread.FreeOnTerminate := True;
+  Thread.Start;
+end;
+
+procedure TFormLista.btn3Click(Sender: TObject);
+var
+  Thread: TDescargaThread;
+  DirectorioLocal: string;
+begin
+  // Limpiar el log al iniciar
+  mmoLog.Clear;
+  mmoLog.Lines.Add('=== INICIANDO PROCESO DE DESCARGA FTP ===');
+  Application.ProcessMessages;
+
+  // Configurar directorio local
+  DirectorioLocal := ExtractFilePath(Application.ExeName) + 'TP3\Descargas\';
+
+  // Marcar que hay un proceso en ejecución
+  ProcesoEnEjecucion := True;
+
+  // Deshabilitar TODOS los botones para evitar múltiples ejecuciones
+  btn1.Enabled := False;
+  btn2.Enabled := False;
+  btn3.Enabled := False;
+
+  // Crear y ejecutar thread
+  Thread := TDescargaThread.Create(Self, DirectorioLocal, 'salida');
   Thread.FreeOnTerminate := True;
   Thread.Start;
 end;
@@ -470,9 +520,10 @@ begin
   // Marcar que hay un proceso en ejecución
   ProcesoEnEjecucion := True;
 
-  // Deshabilitar AMBOS botones para evitar múltiples ejecuciones
+  // Deshabilitar TODOS los botones para evitar múltiples ejecuciones
   btn1.Enabled := False;
   btn2.Enabled := False;
+  btn3.Enabled := False;
 
   // Crear y ejecutar thread
   Thread := TInventarioThread.Create(Self);
@@ -516,6 +567,8 @@ begin
       FFormulario.btn1.Enabled := True;
     if Assigned(FFormulario.btn2) then
       FFormulario.btn2.Enabled := True;
+    if Assigned(FFormulario.btn3) then
+      FFormulario.btn3.Enabled := True;
   end;
 end;
 
@@ -887,6 +940,8 @@ begin
       FFormulario.btn1.Enabled := True;
     if Assigned(FFormulario.btn2) then
       FFormulario.btn2.Enabled := True;
+    if Assigned(FFormulario.btn3) then
+      FFormulario.btn3.Enabled := True;
   end;
 end;
 
@@ -1229,6 +1284,358 @@ begin
   finally
     // Habilitar botón usando sincronización
     Synchronize(HabilitarBoton);
+  end;
+end;
+
+{ TDescargaThread }
+
+constructor TDescargaThread.Create(AFormulario: TFormLista; DirectorioLocal: string; DirectorioRemoto: string = 'salida');
+begin
+  inherited Create(True); // Create suspended
+  FFormulario := AFormulario;
+  FDirectorioLocal := DirectorioLocal;
+  FDirectorioRemoto := DirectorioRemoto;
+  FreeOnTerminate := True;
+end;
+
+procedure TDescargaThread.AgregarLog(const Mensaje: string);
+begin
+  FMensaje := FormatDateTime('yyyy-mm-dd hh:nn:ss.zzz', Now) + ' - ' + Mensaje;
+  Synchronize(ActualizarLog);
+end;
+
+procedure TDescargaThread.ActualizarLog;
+begin
+  if Assigned(FFormulario) and Assigned(FFormulario.mmoLog) then
+  begin
+    FFormulario.mmoLog.Lines.Add(FMensaje);
+    // Hacer scroll automático al final
+    FFormulario.mmoLog.Perform(WM_VSCROLL, SB_BOTTOM, 0);
+  end;
+end;
+
+procedure TDescargaThread.HabilitarBoton;
+begin
+  if Assigned(FFormulario) then
+  begin
+    // Marcar que el proceso terminó
+    FFormulario.ProcesoEnEjecucion := False;
+
+    if Assigned(FFormulario.btn1) then
+      FFormulario.btn1.Enabled := True;
+    if Assigned(FFormulario.btn2) then
+      FFormulario.btn2.Enabled := True;
+    if Assigned(FFormulario.btn3) then
+      FFormulario.btn3.Enabled := True;
+  end;
+end;
+
+procedure TDescargaThread.Execute;
+var
+  FTP: TIdFTP;
+  ListaArchivos: TStringList;
+  i: Integer;
+  ArchivoRemoto, ArchivoLocal: string;
+  TiempoInicio, TiempoFin: TDateTime;
+  ContadorDescargados: Integer;
+
+begin
+  try
+    TiempoInicio := Now;
+    ContadorDescargados := 0;
+    FTP := TIdFTP.Create(nil);
+    ListaArchivos := TStringList.Create;
+
+    try
+      AgregarLog('=== INICIANDO DESCARGA FTP ===');
+      AgregarLog('Directorio local: ' + FDirectorioLocal);
+      AgregarLog('Directorio remoto: ' + FDirectorioRemoto);
+
+      // Crear directorio local si no existe
+      if not DirectoryExists(FDirectorioLocal) then
+      begin
+        ForceDirectories(FDirectorioLocal);
+        AgregarLog('Directorio local creado: ' + FDirectorioLocal);
+      end;
+
+      // Configurar FTP
+      AgregarLog('Configurando conexión FTP...');
+      with FTP do
+      begin
+        Host := 'ftp.icompras360.net';
+        Port := 21;
+        Username := 'icompras360_500726856';
+        Password := 'Amparo500726856.*';
+        Passive := True;
+        ConnectTimeout := 30000;
+        ReadTimeout := 60000;
+      end;
+
+      try
+        AgregarLog('Conectando al servidor FTP...');
+        FTP.Connect;
+        AgregarLog('Conectado exitosamente');
+
+        // Cambiar al directorio remoto
+        AgregarLog('Cambiando a directorio remoto: ' + FDirectorioRemoto);
+        try
+          FTP.ChangeDir(FDirectorioRemoto);
+          AgregarLog('Cambiado exitosamente a: ' + FDirectorioRemoto);
+        except
+          on E: Exception do
+          begin
+            AgregarLog('ERROR: No se pudo acceder al directorio remoto: ' + E.Message);
+            Exit;
+          end;
+        end;
+
+        // Obtener lista de archivos
+        AgregarLog('Obteniendo lista de archivos...');
+        try
+          FTP.List(ListaArchivos, '', False);
+          AgregarLog('Archivos encontrados: ' + IntToStr(ListaArchivos.Count));
+
+          // Mostrar lista de archivos encontrados
+          if ListaArchivos.Count > 0 then
+          begin
+            AgregarLog('--- ARCHIVOS DISPONIBLES ---');
+            for i := 0 to ListaArchivos.Count - 1 do
+            begin
+              AgregarLog('  ' + IntToStr(i + 1) + ': ' + ListaArchivos[i]);
+            end;
+            AgregarLog('--- FIN LISTA ---');
+          end;
+
+        except
+          on E: Exception do
+          begin
+            AgregarLog('ERROR obteniendo lista de archivos: ' + E.Message);
+            Exit;
+          end;
+        end;
+
+        // Descargar cada archivo
+        if ListaArchivos.Count > 0 then
+        begin
+          AgregarLog('Iniciando descarga de archivos...');
+          for i := 0 to ListaArchivos.Count - 1 do
+          begin
+            if Terminated then Break;
+
+            ArchivoRemoto := ListaArchivos[i];
+            // Extraer solo el nombre del archivo (sin información adicional del LIST)
+            if Pos(' ', ArchivoRemoto) > 0 then
+              ArchivoRemoto := Trim(Copy(ArchivoRemoto, LastDelimiter(' ', ArchivoRemoto) + 1, Length(ArchivoRemoto)));
+
+            // Saltar si es directorio (. o ..)
+            if (ArchivoRemoto = '.') or (ArchivoRemoto = '..') or (ArchivoRemoto = '') then
+              Continue;
+
+            ArchivoLocal := FDirectorioLocal + ArchivoRemoto;
+
+            // Verificar si el archivo ya existe
+            if FileExists(ArchivoLocal) then
+            begin
+              AgregarLog('⚠ Omitiendo (' + IntToStr(i + 1) + '/' + IntToStr(ListaArchivos.Count) + '): ' + ArchivoRemoto + ' (ya existe)');
+              Continue;
+            end;
+
+            AgregarLog('Descargando (' + IntToStr(i + 1) + '/' + IntToStr(ListaArchivos.Count) + '): ' + ArchivoRemoto);
+            try
+              FTP.Get(ArchivoRemoto, ArchivoLocal, True);
+              Inc(ContadorDescargados);
+              AgregarLog('✓ Descargado exitosamente: ' + ArchivoRemoto);
+            except
+              on E: Exception do
+              begin
+                AgregarLog('✗ ERROR descargando ' + ArchivoRemoto + ': ' + E.Message);
+                Continue;
+              end;
+            end;
+          end;
+        end
+        else
+        begin
+          AgregarLog('No se encontraron archivos para descargar en el directorio remoto');
+        end;
+
+        TiempoFin := Now;
+        AgregarLog('=== DESCARGA COMPLETADA ===');
+        AgregarLog('Tiempo total: ' + FormatFloat('0.00', (TiempoFin - TiempoInicio) * 24 * 60 * 60) + ' segundos');
+        AgregarLog('Archivos encontrados: ' + IntToStr(ListaArchivos.Count));
+        AgregarLog('Archivos descargados: ' + IntToStr(ContadorDescargados));
+        AgregarLog('Directorio local: ' + FDirectorioLocal);
+
+        if ContadorDescargados > 0 then
+          AgregarLog('¡Descarga FTP completada exitosamente!')
+        else
+          AgregarLog('No se descargaron archivos');
+
+      except
+        on E: Exception do
+        begin
+          AgregarLog('ERROR FTP: ' + E.Message);
+        end;
+      end;
+
+    finally
+      // Desconectar
+      try
+        if FTP.Connected then
+        begin
+          FTP.Disconnect;
+          AgregarLog('Desconectado del servidor FTP');
+        end;
+      except
+        on E: Exception do
+        begin
+          AgregarLog('Error al desconectar FTP: ' + E.Message);
+        end;
+      end;
+      FTP.Free;
+      ListaArchivos.Free;
+    end;
+
+  finally
+    // Habilitar botones usando sincronización
+    Synchronize(HabilitarBoton);
+  end;
+end;
+
+function TFormLista.DescargarArchivosFTP(DirectorioLocal: string; DirectorioRemoto: string = 'salida'): Boolean;
+var
+  FTP: TIdFTP;
+  ListaArchivos: TStringList;
+  i: Integer;
+  ArchivoRemoto, ArchivoLocal: string;
+  TiempoInicio, TiempoFin: TDateTime;
+
+  // Función para logging thread-safe
+  procedure AgregarLog(Mensaje: string);
+  begin
+    mmoLog.Lines.Add(FormatDateTime('yyyy-mm-dd hh:nn:ss.zzz', Now) + ' - ' + Mensaje);
+    Application.ProcessMessages;
+  end;
+
+begin
+  Result := False;
+  TiempoInicio := Now;
+  FTP := TIdFTP.Create(nil);
+  ListaArchivos := TStringList.Create;
+
+  try
+    AgregarLog('=== INICIANDO DESCARGA FTP ===');
+    AgregarLog('Directorio local: ' + DirectorioLocal);
+    AgregarLog('Directorio remoto: ' + DirectorioRemoto);
+
+    // Crear directorio local si no existe
+    if not DirectoryExists(DirectorioLocal) then
+    begin
+      ForceDirectories(DirectorioLocal);
+      AgregarLog('Directorio local creado: ' + DirectorioLocal);
+    end;
+
+    // Configurar FTP
+    AgregarLog('Configurando conexión FTP...');
+    with FTP do
+    begin
+      Host := 'ftp.icompras360.net';
+      Port := 21;
+      Username := 'icompras360_500726856';
+      Password := 'Amparo500726856.*';
+      Passive := True;
+      ConnectTimeout := 30000;
+      ReadTimeout := 60000;
+    end;
+
+    try
+      AgregarLog('Conectando al servidor FTP...');
+      FTP.Connect;
+      AgregarLog('Conectado exitosamente');
+
+      // Cambiar al directorio remoto
+      AgregarLog('Cambiando a directorio remoto: ' + DirectorioRemoto);
+      try
+        FTP.ChangeDir(DirectorioRemoto);
+        AgregarLog('Cambiado exitosamente a: ' + DirectorioRemoto);
+      except
+        on E: Exception do
+        begin
+          AgregarLog('ERROR: No se pudo acceder al directorio remoto: ' + E.Message);
+          Exit;
+        end;
+      end;
+
+      // Obtener lista de archivos
+      AgregarLog('Obteniendo lista de archivos...');
+      try
+        FTP.List(ListaArchivos, '', False);
+        AgregarLog('Archivos encontrados: ' + IntToStr(ListaArchivos.Count));
+      except
+        on E: Exception do
+        begin
+          AgregarLog('ERROR obteniendo lista de archivos: ' + E.Message);
+          Exit;
+        end;
+      end;
+
+      // Descargar cada archivo
+      for i := 0 to ListaArchivos.Count - 1 do
+      begin
+
+        ArchivoRemoto := ListaArchivos[i];
+        // Extraer solo el nombre del archivo (sin información adicional del LIST)
+        if Pos(' ', ArchivoRemoto) > 0 then
+          ArchivoRemoto := Trim(Copy(ArchivoRemoto, LastDelimiter(' ', ArchivoRemoto) + 1, Length(ArchivoRemoto)));
+
+        ArchivoLocal := DirectorioLocal + ArchivoRemoto;
+
+        AgregarLog('Descargando: ' + ArchivoRemoto);
+        try
+          FTP.Get(ArchivoRemoto, ArchivoLocal, True);
+          AgregarLog('Descargado exitosamente: ' + ArchivoRemoto);
+        except
+          on E: Exception do
+          begin
+            AgregarLog('ERROR descargando ' + ArchivoRemoto + ': ' + E.Message);
+            Continue;
+          end;
+        end;
+      end;
+
+      TiempoFin := Now;
+      AgregarLog('=== DESCARGA COMPLETADA ===');
+      AgregarLog('Tiempo total: ' + FormatFloat('0.00', (TiempoFin - TiempoInicio) * 24 * 60 * 60) + ' segundos');
+      AgregarLog('Archivos procesados: ' + IntToStr(ListaArchivos.Count));
+      AgregarLog('Directorio local: ' + DirectorioLocal);
+
+      Result := True;
+
+    except
+      on E: Exception do
+      begin
+        AgregarLog('ERROR FTP: ' + E.Message);
+      end;
+    end;
+
+  finally
+    // Desconectar
+    try
+      if FTP.Connected then
+      begin
+        FTP.Disconnect;
+        AgregarLog('Desconectado del servidor FTP');
+      end;
+    except
+    end;
+    FTP.Free;
+    ListaArchivos.Free;
+
+    // Mostrar resultado
+    if Result then
+      AgregarLog('¡Descarga FTP completada exitosamente!')
+    else
+      AgregarLog('Error en la descarga FTP - Ver log para detalles');
   end;
 end;
 
