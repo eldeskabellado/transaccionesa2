@@ -5,7 +5,7 @@ uses
     dialogs,SysUtils, UnitDatos,Windows, Controls, Forms, StdCtrls, Classes;
 var
   empresa,
-  usuario: String;
+  usuario, PREFIJO: String;
                 
 
 

@@ -38,7 +38,8 @@ uses
   UnitFactor in 'UnitFactor.pas' {formCambioTasa},
   UnitImpresionCodebar in 'UnitImpresionCodebar.pas' {formCodebar},
   UnitPedido in 'UnitPedido.pas' {formPedido},
-  UnitLote in 'UnitLote.pas' {formLotes};
+  UnitLote in 'UnitLote.pas' {formLotes},
+  UnitExportListas in 'UnitExportListas.pas' {formExport};
 
 {$R *.res}
 
@@ -49,6 +50,7 @@ begin
   Application.CreateForm(Td, d);
   Application.CreateForm(TformPedido, formPedido);
   Application.CreateForm(TformLotes, formLotes);
+  Application.CreateForm(TformExport, formExport);
   if TformAcceso.Execute then
   begin
     Application.Run;

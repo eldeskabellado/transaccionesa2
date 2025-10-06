@@ -730,6 +730,7 @@ begin
           SQL.Add('    SInventario.FI_DESCRIPCION,');
           SQL.Add('    SInventario.FI_CATEGORIA,');
           SQL.Add('    SInventario.FI_REFERENCIA,');
+          SQL.Add('    SInventario. FI_GARANTIA,');
           SQL.Add('    Scategoria.FD_DESCRIPCION,');
           SQL.Add('    SInvLote.FL_LOTE,');
           SQL.Add('    Sinvlote.FL_COSTOIMPORTADO,');
@@ -819,7 +820,7 @@ begin
             'N|J500726856|' +
             FormatearDecimal(d.sqLista.FieldByName('FL_PRECIOIMPORTADO').AsFloat * UnitVariablesGlobales.TasaCambiaria) + '|' +
             FormatearDecimal(d.sqLista.FieldByName('Existencia').AsFloat) + '|' +
-            '1|0.00|0.00|0|0.00|' +
+            '1|'+FormatearDecimal(d.sqLista.FieldByName('FI_GARANTIA').AsFloat)+'|0.00|0|0.00|' +
             FormatearDecimal(d.sqLista.FieldByName('FL_PRECIOIMPORTADO').AsFloat * UnitVariablesGlobales.TasaCambiaria) + '|' +
             '0.00|0|' + FormatearFechaTP3(Now) + '|PRINCIPAL|0|0.00|' +
             d.sqLista.FieldByName('FL_LOTE').AsString + '|' +
