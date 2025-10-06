@@ -642,7 +642,6 @@ begin
     WriteLog('Asignando SQL al query...');
     FQuery.SQL.Text := SQL;
     WriteLog('Abriendo query...');
-
     FQuery.Open;
     WriteLog('Query abierto exitosamente');
 
