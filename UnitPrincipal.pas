@@ -515,7 +515,7 @@ var
   F2: TextFile;
 begin
 CargarConfiguracionDesdeINI;
-ShowMessage(PREFIJO);
+//ShowMessage(PREFIJO);
 //Verificar LIC
 LICA2:=directorioa2+'\'+'a2admin.A2';
 //LICA2:=directorioa2+'\'+'a2Basico.A2';

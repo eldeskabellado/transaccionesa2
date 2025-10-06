@@ -39,7 +39,9 @@ uses
   UnitImpresionCodebar in 'UnitImpresionCodebar.pas' {formCodebar},
   UnitPedido in 'UnitPedido.pas' {formPedido},
   UnitLote in 'UnitLote.pas' {formLotes},
-  UnitExportListas in 'UnitExportListas.pas' {formExport};
+  UnitExportListas in 'UnitExportListas.pas' {formExport},
+  ConfigEncryption in '..\SharedUnits\ConfigEncryption.pas',
+  EvolutionConfigReader in '..\SharedUnits\EvolutionConfigReader.pas';
 
 {$R *.res}
 

@@ -268,7 +268,7 @@ begin
       ForceDirectories(ExportPath);
 
     // Guardar archivo en carpeta EXPORTADO
-    FileName := ExportPath + PREFIJO+empresa+ 'REPORTE_VENTAS_' +
+    FileName := ExportPath + 'REPORTE_VENTAS_' +
                 FormatDateTime('yyyymmdd_hhnnss', Now) + '.xlsx';
     WorkBook.SaveAs(FileName);
 
@@ -466,7 +466,7 @@ begin
       ForceDirectories(ExportPath);
 
     // Guardar archivo en carpeta EXPORTADO
-    FileName := ExportPath + PREFIJO+empresa+ 'REPORTE_COMPRAS_' +
+    FileName := ExportPath + 'REPORTE_COMPRAS_' +
                 FormatDateTime('yyyymmdd_hhnnss', Now) + '.xlsx';
     WorkBook.SaveAs(FileName);
 

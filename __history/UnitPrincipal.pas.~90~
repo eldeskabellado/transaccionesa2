@@ -37,14 +37,16 @@ type
     Compras1: TMenuItem;
     EditarCompra1: TMenuItem;
     menEiminar: TMenuItem;
-    btn3: TSpeedButton;
+    btnPedido: TSpeedButton;
+    menReportes1: TMenuItem;
+    menExportarReportes1: TMenuItem;
 
     procedure FormKeyDown(Sender: TObject; var Key: Word; Shift: TShiftState);
     procedure btn1Click(Sender: TObject);
     procedure btn2Click(Sender: TObject);
     procedure FormShow(Sender: TObject);
     procedure ApplicationEvents1Message(var Msg: tagMSG; var Handled: Boolean);
-    procedure btn3Click(Sender: TObject);
+    procedure btnPedidoClick(Sender: TObject);
     procedure btn4Click(Sender: TObject);
     procedure btn5Click(Sender: TObject);
     procedure btn6Click(Sender: TObject);
@@ -54,6 +56,8 @@ type
     procedure EditarCompra1Click(Sender: TObject);
     procedure BitBtn1Click(Sender: TObject);
     procedure menEiminarClick(Sender: TObject);
+    procedure menExportarReportes1Click(Sender: TObject);
+    procedure FormCreate(Sender: TObject);
   private
     { Private declarations }
   public
@@ -78,14 +82,68 @@ uses
   UnitDatos, UnitProceso, Unit_VER_FACTURA, UnitCXC, UnitEditFactura,
   UnitProductos, UnitEtiquetas, UnitCambiarCodigo, UnitELiminar, UnitLicores,
   UnitpProductosVendidos, unitvariables, UnitEditarCompra, UnitListaPrecios,
-  UnitVariablesGlobales, UnitiCompras, UnitFormProductos, UnitFactor, UnitImpresionCodebar, UnitConsulta;
+  UnitVariablesGlobales, UnitiCompras, UnitFormProductos, UnitFactor,
+  UnitImpresionCodebar, UnitConsulta, UnitPedido, UnitExportListas, EvolutionConfigReader;
 
 {$R *.dfm}
 
-procedure TForm2.btn3Click(Sender: TObject);
+procedure CargarConfiguracionDesdeINI;
+var
+  IniFile: TIniFile;
+  RutaINI: string;
 begin
-  // Implementación vacía o funcionalidad que necesites
+  // Obtener la ruta del archivo INI (en el directorio de la aplicación)
+  RutaINI := ExtractFilePath(Application.ExeName) + 'config.ini';
+
+  // Verificar si existe el archivo INI
+  if not FileExists(RutaINI) then
+  begin
+    MessageDlg('No se encontró el archivo de configuración: ' + RutaINI,
+               mtError, [mbOK], 0);
+    Exit;
+  end;
+
+  try
+    IniFile := TIniFile.Create(RutaINI);
+    try
+      // Leer los valores del archivo INI
+      // Sección [Directorios]
+      directorioa2 := IniFile.ReadString('Directorios', 'Directorio', '');
+      directorio_datos := IniFile.ReadString('Directorios', 'DirectorioDatos', '');
+      directoriolocal := IniFile.ReadString('Directorios', 'DirTemp', '');
+      PREFIJO:= IniFile.ReadString('Configuracion', 'Prefijo', '');
+
+      // Validar que se hayan leído los valores
+      if (directorioa2 = '') or (directorio_datos = '') or (directoriolocal = '') then
+      begin
+        MessageDlg('El archivo de configuración no contiene todos los datos necesarios.',
+                   mtWarning, [mbOK], 0);
+      end;
+
+    finally
+      IniFile.Free;
+    end;
+  except
+    on E: Exception do
+    begin
+      MessageDlg('Error al leer el archivo de configuración: ' + E.Message,
+                 mtError, [mbOK], 0);
+    end;
+  end;
 end;
+procedure TForm2.btnPedidoClick(Sender: TObject);
+var
+  FormPedido: TFormPedido;
+begin
+ FormPedido := TFormPedido.Create(Self);
+  try
+    FormPedido.Caption:='Procesar Pedidos';
+    FormPedido.ShowModal;
+  finally
+    FormPedido.Free;
+  end;
+end;
+
 function MostrarFormularioClaveSupervisor(var ClaveSupervisor: string): Boolean;
 var
   Formulario: TForm;
@@ -272,17 +330,31 @@ end;
 
 procedure TForm2.btn4Click(Sender: TObject);
 begin
-    formComisiones:= TformComisiones.Create(Application);
+//    formComisiones:= TformComisiones.Create(Application);
+//      try
+//          with formComisiones do
+//          begin
+//          Caption:= 'GENERAR COMISIONES';
+//
+//          ShowModal;
+//          end;
+//
+//      finally
+//       formComisiones.Free;
+//
+//      end;
+FormExport:= TformExport.Create(Application);
       try
-          with formComisiones do
+          with FormExport do
           begin
-          Caption:= 'GENERAR COMISIONES';
+          Caption:= 'SELECCIONA EL REPORTE A EXPORTAR';
+        //  docProceso:=0;
 
           ShowModal;
           end;
 
       finally
-       formComisiones.Free;
+      Form1.Free;
 
       end;
 end;
@@ -434,6 +506,54 @@ begin
 
 end;
 
+procedure TForm2.FormCreate(Sender: TObject);
+var
+  F, G: TextFile;
+  sLinea, h1, h2, LICA2: String;
+  hashmd5: string;
+  licencia: TCipher;
+  F2: TextFile;
+begin
+CargarConfiguracionDesdeINI;
+ShowMessage(PREFIJO);
+//Verificar LIC
+LICA2:=directorioa2+'\'+'a2admin.A2';
+//LICA2:=directorioa2+'\'+'a2Basico.A2';
+//ShowMessage(LICA2);
+if FileExists('ecom.lic') then
+  begin
+    CargarConfiguracion('ecom.lic', 'UraD3!5*2MbY7c*L');
+    //ShowMessage('API URL: ' + G_TipoHash);
+   // ShowMessage('Empresa: ' + G_Empresa);
+    //ShowMessage('Serial: ' + G_ArchivoVerificacion);
+
+
+    end
+  else
+  begin
+     MessageDlg('NO EXISTE LA LICENCIA', mtCustom, [mbOK], 0);
+                Application.Terminate;
+  end;
+  if FileExists(LICA2) then
+  begin
+           h1:=GetFileHashMD5(LICA2);
+        //   h1:=UpperCase(h1);
+
+            if   h1 = h2 then
+
+            begin
+                MessageDlg(h1 + h2, mtCustom, [mbOK], 0);
+                Application.Terminate;
+            end;
+
+  end
+  else
+  begin
+     MessageDlg('NO EXISTE LA LICENCIA DE a2 Asociada', mtCustom, [mbOK], 0);
+                Application.Terminate;
+  end;
+end;
+
 procedure TForm2.FormKeyDown(Sender: TObject; var Key: Word;
   Shift: TShiftState);
 begin
@@ -465,7 +585,7 @@ var
     licencia:TCipher;
     F2: TextFile;
 begin
-   with d.datprincipal do
+ with d.datprincipal do
         begin
         Connected:=False;
         Directory:='';
@@ -501,47 +621,8 @@ begin
         end;
 
 
-//Verificar LIC
-LICA2:=directorioa2+'\'+'a2admin.A2';
-//LICA2:=directorioa2+'\'+'a2Basico.A2';
-//ShowMessage(LICA2);
-if FileExists('kairos.md') then
-  begin
-    licencia:= TCipher.Create;
-    mmoprelicencia.Lines.LoadFromFile( ExtractFilePath( Application.ExeName ) + 'kairos.md' );
-    mmolicencia.Text:=licencia.DecryptString(mmoprelicencia.text,Edt3.Text, cifrado.haMD5);
-    h2:=mmolicencia.Lines[0];
-    empresa:=mmolicencia.Lines[1];
-    serial:=mmolicencia.Lines[2];
-    version:=mmolicencia.Lines[3];
-    licencia.Free;
-
-    end
-  else
-  begin
-     MessageDlg('NO EXISTE LA LICENCIA', mtCustom, [mbOK], 0);
-                Application.Terminate;
-  end;
-  if FileExists(LICA2) then
-  begin
-           h1:=GetFileHashMD5(LICA2);
-           h1:=UpperCase(h1);
-
-            if   h1 = h2 then
-
-            begin
-                MessageDlg(h1 + h2, mtCustom, [mbOK], 0);
-                Application.Terminate;
-            end;
-
-  end
-  else
-  begin
-     MessageDlg('NO EXISTE LA LICENCIA DE a2 Asociada', mtCustom, [mbOK], 0);
-                Application.Terminate;
-  end;
-  Caption:='EMPRESA: ' +empresa ;
-  unitvariables.empresa:=empresa;
+  Caption:='EMPRESA: ' +G_Empresa+ ' SERIAL ASIGNADO: '+G_Serial ;
+  unitvariables.empresa:=G_Empresa;
   edt1.Text:= empresa;
   stat1.SimplePanel := True;
   stat1.SimpleText := 'Serial: '+serial;
@@ -581,6 +662,24 @@ begin
 
       finally
        formEliminar.Free;
+
+      end;
+end;
+
+procedure TForm2.menExportarReportes1Click(Sender: TObject);
+begin
+FormExport:= TformExport.Create(Application);
+      try
+          with FormExport do
+          begin
+          Caption:= 'SELECCIONA EL REPORTE A EXPORTAR';
+        //  docProceso:=0;
+
+          ShowModal;
+          end;
+
+      finally
+      Form1.Free;
 
       end;
 end;
