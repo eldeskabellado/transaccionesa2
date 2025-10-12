@@ -16,8 +16,12 @@ type
     FQuery: TDBISAMQuery;
     FMensaje: string;
     FError: Boolean;
+    FMaxRetries: Integer;
+    FRetryDelay: Integer;
     procedure ExportarVentasExcel;
     procedure MostrarMensaje;
+    function TryCreateExcel(out ExcelApp: Variant): Boolean;
+    procedure SafeCloseExcel(var ExcelApp, WorkBook: Variant);
   protected
     procedure Execute; override;
   public
@@ -32,8 +36,12 @@ type
     FQuery: TDBISAMQuery;
     FMensaje: string;
     FError: Boolean;
+    FMaxRetries: Integer;
+    FRetryDelay: Integer;
     procedure ExportarComprasExcel;
     procedure MostrarMensaje;
+    function TryCreateExcel(out ExcelApp: Variant): Boolean;
+    procedure SafeCloseExcel(var ExcelApp, WorkBook: Variant);
   protected
     procedure Execute; override;
   public
@@ -46,9 +54,13 @@ type
     FQuery: TDBISAMQuery;
     FMensaje: string;
     FError: Boolean;
+    FMaxRetries: Integer;
+    FRetryDelay: Integer;
     procedure ExportarInventarioExcel;
     procedure MostrarMensaje;
     procedure WriteLog(const Msg: string);
+    function TryCreateExcel(out ExcelApp: Variant): Boolean;
+    procedure SafeCloseExcel(var ExcelApp, WorkBook: Variant);
   protected
     procedure Execute; override;
   public
@@ -107,6 +119,8 @@ begin
   FFechaInicio := AFechaInicio;
   FFechaFin := AFechaFin;
   FQuery := AQuery;
+  FMaxRetries := 3;
+  FRetryDelay := 2000; // 2 segundos
   FreeOnTerminate := True;
 end;
 
@@ -134,6 +148,71 @@ begin
   ShowMessage(FMensaje);
 end;
 
+// Función auxiliar para crear Excel con reintentos
+function TReporteVentasThread.TryCreateExcel(out ExcelApp: Variant): Boolean;
+var
+  Attempt: Integer;
+begin
+  Result := False;
+  ExcelApp := Unassigned;
+
+  for Attempt := 1 to FMaxRetries do
+  begin
+    try
+      // Intentar crear Excel
+      ExcelApp := CreateOleObject('Excel.Application');
+      ExcelApp.Visible := False;
+      ExcelApp.DisplayAlerts := False;
+      Result := True;
+      Break;
+    except
+      on E: Exception do
+      begin
+        if Attempt < FMaxRetries then
+        begin
+          Sleep(FRetryDelay);
+          Continue;
+        end
+        else
+          raise Exception.Create('No se pudo crear Excel después de ' + IntToStr(FMaxRetries) + ' intentos: ' + E.Message);
+      end;
+    end;
+  end;
+end;
+
+// Función auxiliar para cerrar Excel de forma segura
+procedure TReporteVentasThread.SafeCloseExcel(var ExcelApp, WorkBook: Variant);
+begin
+  try
+    if not VarIsEmpty(WorkBook) and not VarIsNull(WorkBook) then
+    begin
+      try
+        WorkBook.Close(False);
+      except
+        // Ignorar errores al cerrar el libro
+      end;
+      WorkBook := Unassigned;
+    end;
+  except
+    // Ignorar errores
+  end;
+
+  try
+    if not VarIsEmpty(ExcelApp) and not VarIsNull(ExcelApp) then
+    begin
+      try
+        ExcelApp.DisplayAlerts := True;
+        ExcelApp.Quit;
+      except
+        // Ignorar errores al cerrar Excel
+      end;
+      ExcelApp := Unassigned;
+    end;
+  except
+    // Ignorar errores
+  end;
+end;
+
 // Función para exportar ventas a Excel
 procedure TReporteVentasThread.ExportarVentasExcel;
 var
@@ -143,16 +222,21 @@ var
   FileName: string;
   Cantidad, Monto, Costo: Double;
   TipoDoc: Integer;
+  DataArray: Variant;
+  RowCount, i: Integer;
 begin
-  // Inicializar COM para este thread
-  CoInitialize(nil);
+  // Inicializar COM para este thread con apartamento STA
+  CoInitializeEx(nil, COINIT_APARTMENTTHREADED);
 
   try
-    // Crear aplicación Excel
-    ExcelApp := CreateOleObject('Excel.Application');
-    ExcelApp.Visible := False;
+    // Crear aplicación Excel con reintentos
+    if not TryCreateExcel(ExcelApp) then
+      raise Exception.Create('No se pudo inicializar Excel');
 
   try
+    // Deshabilitar actualizaciones de pantalla para mejor rendimiento con consultas largas
+    ExcelApp.ScreenUpdating := False;
+
     // Crear nuevo libro
     WorkBook := ExcelApp.Workbooks.Add;
     WorkSheet := WorkBook.Worksheets[1];
@@ -209,11 +293,33 @@ begin
            'AND S1.FDI_FECHAOPERACION <= ''' + FormatDateTime('yyyy-mm-dd', FFechaFin) + ''' ' +
            'ORDER BY S1.FDI_FECHAOPERACION DESC, S1.FDI_DOCUMENTO DESC';
 
-    // Ejecutar consulta
+    // Ejecutar consulta con configuración optimizada
+    FQuery.Close;
     FQuery.SQL.Text := SQL;
+    // Configurar propiedades para consultas largas en DBISAM
+    if FQuery is TDBISAMQuery then
+    begin
+      with TDBISAMQuery(FQuery) do
+      begin
+        // Configurar para mejor rendimiento en consultas largas
+        RequestLive := False;  // Solo lectura, más rápido
+      end;
+    end;
     FQuery.Open;
 
-    Row := 2;
+    // Contar registros para dimensionar el array
+    FQuery.Last;
+    RowCount := FQuery.RecordCount;
+    FQuery.First;
+
+    if RowCount = 0 then
+      raise Exception.Create('No hay datos para exportar');
+
+    // Crear array de variantes [filas, columnas]
+    DataArray := VarArrayCreate([1, RowCount, 1, 14], varVariant);
+
+    // Llenar array con datos del query
+    i := 1;
     while not FQuery.Eof do
     begin
       TipoDoc := FQuery.FieldByName('FDI_TIPOOPERACION').AsInteger;
@@ -229,35 +335,40 @@ begin
         Costo := -Abs(Costo);
       end;
 
-      // Llenar datos en Excel (CODIGO y GRUPO_ID como texto)
-      WorkSheet.Cells[Row, 1] := '''' + UpperCase(FQuery.FieldByName('FDI_CODIGO').AsString);
-      WorkSheet.Cells[Row, 2] := '''' + UpperCase(FQuery.FieldByName('FI_CATEGORIA').AsString);
-      WorkSheet.Cells[Row, 3] := FQuery.FieldByName('FDI_FECHAOPERACION').AsDateTime;
-      WorkSheet.Cells[Row, 4] := Cantidad;
-      WorkSheet.Cells[Row, 5] := UpperCase(FQuery.FieldByName('FDI_MONEDA').AsString);
-      WorkSheet.Cells[Row, 6] := FQuery.FieldByName('FDI_FACTORCAMBIO').AsFloat;
-      WorkSheet.Cells[Row, 7] := Monto;
-      WorkSheet.Cells[Row, 8] := Costo;
-      WorkSheet.Cells[Row, 9] := FQuery.FieldByName('FDI_DOCUMENTO').AsString;
-      WorkSheet.Cells[Row, 10] := UpperCase(FQuery.FieldByName('FTI_PERSONACONTACTO').AsString);
-      WorkSheet.Cells[Row, 11] := UpperCase(FQuery.FieldByName('FC_EMAIL').AsString);
-      WorkSheet.Cells[Row, 12] := FQuery.FieldByName('FTI_TELEFONOCONTACTO').AsString;
-      WorkSheet.Cells[Row, 13] := 'EL PUERTO DEL CAUCHO, C.A.';
+      // Llenar array (mucho más rápido que escribir celda por celda)
+      DataArray[i, 1] := '''' + UpperCase(FQuery.FieldByName('FDI_CODIGO').AsString);
+      DataArray[i, 2] := '''' + UpperCase(FQuery.FieldByName('FI_CATEGORIA').AsString);
+      DataArray[i, 3] := FQuery.FieldByName('FDI_FECHAOPERACION').AsDateTime;
+      DataArray[i, 4] := Cantidad;
+      DataArray[i, 5] := UpperCase(FQuery.FieldByName('FDI_MONEDA').AsString);
+      DataArray[i, 6] := FQuery.FieldByName('FDI_FACTORCAMBIO').AsFloat;
+      DataArray[i, 7] := Monto;
+      DataArray[i, 8] := Costo;
+      DataArray[i, 9] := FQuery.FieldByName('FDI_DOCUMENTO').AsString;
+      DataArray[i, 10] := UpperCase(FQuery.FieldByName('FTI_PERSONACONTACTO').AsString);
+      DataArray[i, 11] := UpperCase(FQuery.FieldByName('FC_EMAIL').AsString);
+      DataArray[i, 12] := FQuery.FieldByName('FTI_TELEFONOCONTACTO').AsString;
+      DataArray[i, 13] := 'EL PUERTO DEL CAUCHO, C.A.';
 
       // Determinar tipo de documento
       if TipoDoc = 11 then
-        WorkSheet.Cells[Row, 14] := 'FACTURA'
+        DataArray[i, 14] := 'FACTURA'
       else if TipoDoc = 12 then
-        WorkSheet.Cells[Row, 14] := 'N.C.'
+        DataArray[i, 14] := 'N.C.'
       else
-        WorkSheet.Cells[Row, 14] := 'OTRO';
+        DataArray[i, 14] := 'OTRO';
 
-
-      Inc(Row);
+      Inc(i);
       FQuery.Next;
     end;
 
     FQuery.Close;
+
+    // Escribir todo el array de una sola vez a Excel (1 sola llamada COM)
+    WorkSheet.Range[WorkSheet.Cells[2, 1], WorkSheet.Cells[RowCount + 1, 14]].Value := DataArray;
+
+    // Reactivar actualizaciones antes de autoajustar
+    ExcelApp.ScreenUpdating := True;
 
     // Autoajustar columnas
     WorkSheet.Columns.AutoFit;
@@ -275,14 +386,8 @@ begin
     FMensaje := 'Archivo guardado en: ' + FileName;
 
   finally
-    // Cerrar Excel
-    if not VarIsEmpty(WorkBook) then
-      WorkBook.Close;
-    if not VarIsEmpty(ExcelApp) then
-    begin
-      ExcelApp.Quit;
-      ExcelApp := Unassigned;
-    end;
+    // Cerrar Excel de forma segura
+    SafeCloseExcel(ExcelApp, WorkBook);
   end;
 
   finally
@@ -302,6 +407,8 @@ begin
     FFechaFin := formExport.dtp2.Date;
     FQuery := formExport.sqProductosVendidos;
   end;
+  FMaxRetries := 3;
+  FRetryDelay := 2000; // 2 segundos
   FreeOnTerminate := True;
 end;
 
@@ -328,6 +435,71 @@ begin
   ShowMessage(FMensaje);
 end;
 
+// Función auxiliar para crear Excel con reintentos
+function TReporteComprasThread.TryCreateExcel(out ExcelApp: Variant): Boolean;
+var
+  Attempt: Integer;
+begin
+  Result := False;
+  ExcelApp := Unassigned;
+
+  for Attempt := 1 to FMaxRetries do
+  begin
+    try
+      // Intentar crear Excel
+      ExcelApp := CreateOleObject('Excel.Application');
+      ExcelApp.Visible := False;
+      ExcelApp.DisplayAlerts := False;
+      Result := True;
+      Break;
+    except
+      on E: Exception do
+      begin
+        if Attempt < FMaxRetries then
+        begin
+          Sleep(FRetryDelay);
+          Continue;
+        end
+        else
+          raise Exception.Create('No se pudo crear Excel después de ' + IntToStr(FMaxRetries) + ' intentos: ' + E.Message);
+      end;
+    end;
+  end;
+end;
+
+// Función auxiliar para cerrar Excel de forma segura
+procedure TReporteComprasThread.SafeCloseExcel(var ExcelApp, WorkBook: Variant);
+begin
+  try
+    if not VarIsEmpty(WorkBook) and not VarIsNull(WorkBook) then
+    begin
+      try
+        WorkBook.Close(False);
+      except
+        // Ignorar errores al cerrar el libro
+      end;
+      WorkBook := Unassigned;
+    end;
+  except
+    // Ignorar errores
+  end;
+
+  try
+    if not VarIsEmpty(ExcelApp) and not VarIsNull(ExcelApp) then
+    begin
+      try
+        ExcelApp.DisplayAlerts := True;
+        ExcelApp.Quit;
+      except
+        // Ignorar errores al cerrar Excel
+      end;
+      ExcelApp := Unassigned;
+    end;
+  except
+    // Ignorar errores
+  end;
+end;
+
 // Función para exportar compras a Excel
 procedure TReporteComprasThread.ExportarComprasExcel;
 var
@@ -337,16 +509,21 @@ var
   FileName: string;
   Cantidad, Monto, Costo: Double;
   TipoDoc: Integer;
+  DataArray: Variant;
+  RowCount, i: Integer;
 begin
-  // Inicializar COM para este thread
-  CoInitialize(nil);
+  // Inicializar COM para este thread con apartamento STA
+  CoInitializeEx(nil, COINIT_APARTMENTTHREADED);
 
   try
-    // Crear aplicación Excel
-    ExcelApp := CreateOleObject('Excel.Application');
-    ExcelApp.Visible := False;
+    // Crear aplicación Excel con reintentos
+    if not TryCreateExcel(ExcelApp) then
+      raise Exception.Create('No se pudo inicializar Excel');
 
   try
+    // Deshabilitar actualizaciones de pantalla para mejor rendimiento con consultas largas
+    ExcelApp.ScreenUpdating := False;
+
     // Crear nuevo libro
     WorkBook := ExcelApp.Workbooks.Add;
     WorkSheet := WorkBook.Worksheets[1];
@@ -402,17 +579,38 @@ begin
            'AND S1.FDI_FECHAOPERACION <= ''' + FormatDateTime('yyyy-mm-dd', FFechaFin) + ''' ' +
            'ORDER BY S1.FDI_FECHAOPERACION DESC, S1.FDI_DOCUMENTO DESC';
 
-    // Ejecutar consulta
+    // Ejecutar consulta con configuración optimizada
     if Assigned(FQuery) then
     begin
       FQuery.Close;
       FQuery.SQL.Text := SQL;
+      // Configurar propiedades para consultas largas en DBISAM
+      if FQuery is TDBISAMQuery then
+      begin
+        with TDBISAMQuery(FQuery) do
+        begin
+          // Configurar para mejor rendimiento en consultas largas
+          RequestLive := False;  // Solo lectura, más rápido
+        end;
+      end;
       FQuery.Open;
     end
     else
       raise Exception.Create('No se encontró componente de consulta para ejecutar el reporte de compras');
 
-    Row := 2;
+    // Contar registros para dimensionar el array
+    FQuery.Last;
+    RowCount := FQuery.RecordCount;
+    FQuery.First;
+
+    if RowCount = 0 then
+      raise Exception.Create('No hay datos para exportar');
+
+    // Crear array de variantes [filas, columnas]
+    DataArray := VarArrayCreate([1, RowCount, 1, 14], varVariant);
+
+    // Llenar array con datos del query
+    i := 1;
     while not FQuery.Eof do
     begin
       TipoDoc := FQuery.FieldByName('FDI_TIPOOPERACION').AsInteger;
@@ -428,34 +626,40 @@ begin
         Costo := -Abs(Costo);
       end;
 
-      // Llenar datos en Excel (CODIGO y GRUPO_ID como texto)
-      WorkSheet.Cells[Row, 1] := '''' + UpperCase(FQuery.FieldByName('FDI_CODIGO').AsString);
-      WorkSheet.Cells[Row, 2] := '''' + UpperCase(FQuery.FieldByName('FI_CATEGORIA').AsString);
-      WorkSheet.Cells[Row, 3] := FQuery.FieldByName('FDI_FECHAOPERACION').AsDateTime;
-      WorkSheet.Cells[Row, 4] := Cantidad;
-      WorkSheet.Cells[Row, 5] := UpperCase(FQuery.FieldByName('FDI_MONEDA').AsString);
-      WorkSheet.Cells[Row, 6] := FQuery.FieldByName('FDI_FACTORCAMBIO').AsFloat;
-      WorkSheet.Cells[Row, 7] := Monto;
-      WorkSheet.Cells[Row, 8] := Costo;
-      WorkSheet.Cells[Row, 9] := FQuery.FieldByName('FDI_DOCUMENTO').AsString;
-      WorkSheet.Cells[Row, 10] := UpperCase(FQuery.FieldByName('FTI_PERSONACONTACTO').AsString);
-      WorkSheet.Cells[Row, 11] := UpperCase(FQuery.FieldByName('FC_EMAIL').AsString);
-      WorkSheet.Cells[Row, 12] := FQuery.FieldByName('FTI_TELEFONOCONTACTO').AsString;
-      WorkSheet.Cells[Row, 13] := 'EL PUERTO DEL CAUCHO, C.A.';
+      // Llenar array (mucho más rápido que escribir celda por celda)
+      DataArray[i, 1] := '''' + UpperCase(FQuery.FieldByName('FDI_CODIGO').AsString);
+      DataArray[i, 2] := '''' + UpperCase(FQuery.FieldByName('FI_CATEGORIA').AsString);
+      DataArray[i, 3] := FQuery.FieldByName('FDI_FECHAOPERACION').AsDateTime;
+      DataArray[i, 4] := Cantidad;
+      DataArray[i, 5] := UpperCase(FQuery.FieldByName('FDI_MONEDA').AsString);
+      DataArray[i, 6] := FQuery.FieldByName('FDI_FACTORCAMBIO').AsFloat;
+      DataArray[i, 7] := Monto;
+      DataArray[i, 8] := Costo;
+      DataArray[i, 9] := FQuery.FieldByName('FDI_DOCUMENTO').AsString;
+      DataArray[i, 10] := UpperCase(FQuery.FieldByName('FTI_PERSONACONTACTO').AsString);
+      DataArray[i, 11] := UpperCase(FQuery.FieldByName('FC_EMAIL').AsString);
+      DataArray[i, 12] := FQuery.FieldByName('FTI_TELEFONOCONTACTO').AsString;
+      DataArray[i, 13] := 'EL PUERTO DEL CAUCHO, C.A.';
 
       // Determinar tipo de documento
       if TipoDoc = 11 then
-        WorkSheet.Cells[Row, 14] := 'FACTURA'
+        DataArray[i, 14] := 'FACTURA'
       else if TipoDoc = 12 then
-        WorkSheet.Cells[Row, 14] := 'N.C.'
+        DataArray[i, 14] := 'N.C.'
       else
-        WorkSheet.Cells[Row, 14] := 'OTRO';
+        DataArray[i, 14] := 'OTRO';
 
-      Inc(Row);
+      Inc(i);
       FQuery.Next;
     end;
 
     FQuery.Close;
+
+    // Escribir todo el array de una sola vez a Excel (1 sola llamada COM)
+    WorkSheet.Range[WorkSheet.Cells[2, 1], WorkSheet.Cells[RowCount + 1, 14]].Value := DataArray;
+
+    // Reactivar actualizaciones antes de autoajustar
+    ExcelApp.ScreenUpdating := True;
 
     // Autoajustar columnas
     WorkSheet.Columns.AutoFit;
@@ -473,14 +677,8 @@ begin
     FMensaje := 'Archivo guardado en: ' + FileName;
 
   finally
-    // Cerrar Excel
-    if not VarIsEmpty(WorkBook) then
-      WorkBook.Close;
-    if not VarIsEmpty(ExcelApp) then
-    begin
-      ExcelApp.Quit;
-      ExcelApp := Unassigned;
-    end;
+    // Cerrar Excel de forma segura
+    SafeCloseExcel(ExcelApp, WorkBook);
   end;
 
   finally
@@ -515,6 +713,90 @@ begin
   end;
 end;
 
+// Función auxiliar para crear Excel con reintentos
+function TReporteInventarioThread.TryCreateExcel(out ExcelApp: Variant): Boolean;
+var
+  Attempt: Integer;
+begin
+  Result := False;
+  ExcelApp := Unassigned;
+  WriteLog('=== INICIO: TryCreateExcel ===');
+
+  for Attempt := 1 to FMaxRetries do
+  begin
+    try
+      WriteLog('Intento ' + IntToStr(Attempt) + ' de ' + IntToStr(FMaxRetries) + ' para crear Excel');
+      // Intentar crear Excel
+      ExcelApp := CreateOleObject('Excel.Application');
+      ExcelApp.Visible := False;
+      ExcelApp.DisplayAlerts := False;
+      WriteLog('Excel creado exitosamente en intento ' + IntToStr(Attempt));
+      Result := True;
+      Break;
+    except
+      on E: Exception do
+      begin
+        WriteLog('ERROR en intento ' + IntToStr(Attempt) + ': ' + E.Message);
+        if Attempt < FMaxRetries then
+        begin
+          WriteLog('Esperando ' + IntToStr(FRetryDelay) + 'ms antes del siguiente intento...');
+          Sleep(FRetryDelay);
+          Continue;
+        end
+        else
+        begin
+          WriteLog('FALLO FINAL: No se pudo crear Excel después de ' + IntToStr(FMaxRetries) + ' intentos');
+          raise Exception.Create('No se pudo crear Excel después de ' + IntToStr(FMaxRetries) + ' intentos: ' + E.Message);
+        end;
+      end;
+    end;
+  end;
+  WriteLog('=== FIN: TryCreateExcel - Result: ' + BoolToStr(Result, True) + ' ===');
+end;
+
+// Función auxiliar para cerrar Excel de forma segura
+procedure TReporteInventarioThread.SafeCloseExcel(var ExcelApp, WorkBook: Variant);
+begin
+  WriteLog('=== INICIO: SafeCloseExcel ===');
+  try
+    if not VarIsEmpty(WorkBook) and not VarIsNull(WorkBook) then
+    begin
+      try
+        WriteLog('Cerrando WorkBook...');
+        WorkBook.Close(False);
+        WriteLog('WorkBook cerrado');
+      except
+        on E: Exception do
+          WriteLog('Error al cerrar WorkBook (ignorado): ' + E.Message);
+      end;
+      WorkBook := Unassigned;
+    end;
+  except
+    on E: Exception do
+      WriteLog('Error general al cerrar WorkBook (ignorado): ' + E.Message);
+  end;
+
+  try
+    if not VarIsEmpty(ExcelApp) and not VarIsNull(ExcelApp) then
+    begin
+      try
+        WriteLog('Cerrando ExcelApp...');
+        ExcelApp.DisplayAlerts := True;
+        ExcelApp.Quit;
+        WriteLog('ExcelApp cerrado');
+      except
+        on E: Exception do
+          WriteLog('Error al cerrar ExcelApp (ignorado): ' + E.Message);
+      end;
+      ExcelApp := Unassigned;
+    end;
+  except
+    on E: Exception do
+      WriteLog('Error general al cerrar ExcelApp (ignorado): ' + E.Message);
+  end;
+  WriteLog('=== FIN: SafeCloseExcel ===');
+end;
+
 // Constructor del Thread para Reporte de Inventario
 constructor TReporteInventarioThread.Create;
 begin
@@ -539,6 +821,8 @@ begin
     raise Exception.Create('El formulario formExport no está asignado');
   end;
 
+  FMaxRetries := 3;
+  FRetryDelay := 2000; // 2 segundos
   FreeOnTerminate := True;
   WriteLog('Constructor completado exitosamente');
 end;
@@ -582,22 +866,29 @@ var
   Row: Integer;
   FileName: string;
   RecordCount: Integer;
+  DataArray: Variant;
+  i: Integer;
 begin
   WriteLog('=== INICIO: ExportarInventarioExcel ===');
 
-  // Inicializar COM para este thread
-  WriteLog('Inicializando COM...');
-  CoInitialize(nil);
+  // Inicializar COM para este thread con apartamento STA
+  WriteLog('Inicializando COM con apartamento STA...');
+  CoInitializeEx(nil, COINIT_APARTMENTTHREADED);
   WriteLog('COM inicializado');
 
   try
-    // Crear aplicación Excel
-    WriteLog('Creando aplicación Excel...');
-    ExcelApp := CreateOleObject('Excel.Application');
-    ExcelApp.Visible := False;
+    // Crear aplicación Excel con reintentos
+    WriteLog('Creando aplicación Excel con reintentos...');
+    if not TryCreateExcel(ExcelApp) then
+      raise Exception.Create('No se pudo inicializar Excel');
     WriteLog('Excel creado exitosamente');
 
   try
+    // Deshabilitar actualizaciones de pantalla para mejor rendimiento con consultas largas
+    WriteLog('Deshabilitando actualizaciones de pantalla...');
+    ExcelApp.ScreenUpdating := False;
+    WriteLog('ScreenUpdating deshabilitado');
+
     // Crear nuevo libro
     WriteLog('Creando nuevo libro de Excel...');
     WorkBook := ExcelApp.Workbooks.Add;
@@ -641,6 +932,16 @@ begin
     FQuery.Close;
     WriteLog('Asignando SQL al query...');
     FQuery.SQL.Text := SQL;
+    WriteLog('Configurando propiedades para consultas largas...');
+    // Configurar propiedades para consultas largas en DBISAM
+    if FQuery is TDBISAMQuery then
+    begin
+      with TDBISAMQuery(FQuery) do
+      begin
+        WriteLog('Configurando RequestLive := False para mejor rendimiento...');
+        RequestLive := False;  // Solo lectura, más rápido
+      end;
+    end;
     WriteLog('Abriendo query...');
 
     FQuery.Open;
@@ -654,34 +955,53 @@ begin
       raise Exception.Create('No se encontraron registros de inventario para exportar');
     end;
 
-    WriteLog('Iniciando recorrido de registros...');
-    RecordCount := 0;
-    Row := 2;
-    while not FQuery.Eof do
-    begin
-      // Llenar datos en Excel
-      WorkSheet.Cells[Row, 1] := '''' + UpperCase(FQuery.FieldByName('FT_CODIGOPRODUCTO').AsString);
-      WorkSheet.Cells[Row, 2] := UpperCase(FQuery.FieldByName('NOMBRE_PRODUCTO').AsString);
-      WorkSheet.Cells[Row, 3] := FQuery.FieldByName('FT_EXISTENCIA').AsFloat;
-      WorkSheet.Cells[Row, 4] := FQuery.FieldByName('COSTO').AsFloat;
-      WorkSheet.Cells[Row, 5] := UpperCase(FQuery.FieldByName('FT_CODIGODEPOSITO').AsString);
-
-      Inc(Row);
-      Inc(RecordCount);
-
-      // Log cada 100 registros para monitorear progreso
-      if (RecordCount mod 100) = 0 then
-        WriteLog('Procesados ' + IntToStr(RecordCount) + ' registros...');
-
-      FQuery.Next;
-    end;
-
-    WriteLog('Total de registros procesados: ' + IntToStr(RecordCount));
-    FQuery.Close;
-    WriteLog('Query cerrado');
+    // Contar registros para dimensionar el array
+    WriteLog('Contando registros...');
+    FQuery.Last;
+    RecordCount := FQuery.RecordCount;
+    FQuery.First;
+    WriteLog('Total de registros a exportar: ' + IntToStr(RecordCount));
 
     if RecordCount = 0 then
       raise Exception.Create('No se encontraron registros de inventario para exportar');
+
+    // Crear array de variantes [filas, columnas]
+    WriteLog('Creando array de datos...');
+    DataArray := VarArrayCreate([1, RecordCount, 1, 5], varVariant);
+
+    // Llenar array con datos del query
+    WriteLog('Llenando array con datos...');
+    i := 1;
+    while not FQuery.Eof do
+    begin
+      // Llenar array (mucho más rápido que escribir celda por celda)
+      DataArray[i, 1] := '''' + UpperCase(FQuery.FieldByName('FT_CODIGOPRODUCTO').AsString);
+      DataArray[i, 2] := UpperCase(FQuery.FieldByName('NOMBRE_PRODUCTO').AsString);
+      DataArray[i, 3] := FQuery.FieldByName('FT_EXISTENCIA').AsFloat;
+      DataArray[i, 4] := FQuery.FieldByName('COSTO').AsFloat;
+      DataArray[i, 5] := UpperCase(FQuery.FieldByName('FT_CODIGODEPOSITO').AsString);
+
+      // Log cada 1000 registros para monitorear progreso (solo para llenar array)
+      if (i mod 1000) = 0 then
+        WriteLog('Procesados ' + IntToStr(i) + ' registros en array...');
+
+      Inc(i);
+      FQuery.Next;
+    end;
+
+    FQuery.Close;
+    WriteLog('Query cerrado');
+    WriteLog('Array llenado con ' + IntToStr(RecordCount) + ' registros');
+
+    // Escribir todo el array de una sola vez a Excel (1 sola llamada COM)
+    WriteLog('Escribiendo array completo a Excel...');
+    WorkSheet.Range[WorkSheet.Cells[2, 1], WorkSheet.Cells[RecordCount + 1, 5]].Value := DataArray;
+    WriteLog('Datos escritos exitosamente en Excel');
+
+    // Reactivar actualizaciones antes de autoajustar
+    WriteLog('Reactivando actualizaciones de pantalla...');
+    ExcelApp.ScreenUpdating := True;
+    WriteLog('ScreenUpdating reactivado');
 
     // Autoajustar columnas
     WriteLog('Autoajustando columnas...');
@@ -729,14 +1049,8 @@ begin
     WriteLog('FMensaje asignado: ' + FMensaje);
 
   finally
-    // Cerrar Excel
-    if not VarIsEmpty(WorkBook) then
-      WorkBook.Close;
-    if not VarIsEmpty(ExcelApp) then
-    begin
-      ExcelApp.Quit;
-      ExcelApp := Unassigned;
-    end;
+    // Cerrar Excel de forma segura
+    SafeCloseExcel(ExcelApp, WorkBook);
   end;
 
   finally
