@@ -47,6 +47,26 @@ type
     constructor Create(AFechaInicio, AFechaFin: TDateTime; AQuery: TDBISAMQuery);
   end;
 
+  // Thread para Reporte de Ventas con Cantidad Despachada
+  TReporteVentasDespachadasThread = class(TThread)
+  private
+    FFechaInicio: TDateTime;
+    FFechaFin: TDateTime;
+    FQuery: TDBISAMQuery;
+    FMensaje: string;
+    FError: Boolean;
+    FMaxRetries: Integer;
+    FRetryDelay: Integer;
+    procedure ExportarVentasDespachadasExcel;
+    procedure MostrarMensaje;
+    function TryCreateExcel(out ExcelApp: Variant): Boolean;
+    procedure SafeCloseExcel(var ExcelApp, WorkBook: Variant);
+  protected
+    procedure Execute; override;
+  public
+    constructor Create(AFechaInicio, AFechaFin: TDateTime; AQuery: TDBISAMQuery);
+  end;
+
   // Thread para Reporte de Compras
   TReporteComprasThread = class(TThread)
   private
@@ -113,6 +133,7 @@ type
   private
     { Private declarations }
     procedure EjecutarReporteVentas;
+    procedure EjecutarReporteVentasDespachadas;
     procedure EjecutarReporteCompras;
     procedure EjecutarReporteInventario;
     procedure EjecutarProductosVendidos;
@@ -477,7 +498,7 @@ begin
       WriteLog('Carpeta EXPORTADO verificada: ' + ExportPath);
 
       // Guardar archivo en carpeta EXPORTADO
-      FileName := ExportPath + PREFIJO + empresa + 'REPORTE_INVENTARIO_INICIO_' +
+      FileName := ExportPath + NAME_EMPRESA + '_REPORTE_INVENTARIO_INICIO_' +
                   FormatDateTime('yyyymmdd_hhnnss', Now) + '.xlsx';
       WriteLog('Nombre de archivo: ' + FileName);
 
@@ -694,7 +715,7 @@ SQL := 'SELECT S1.FDI_CODIGO, ' +
        'AND S2.FI_STATUS = True ' +
        'AND S3.FTI_VISIBLE = True ' +
        'AND S4.FC_STATUS = True ' +
-       'AND S1.FDI_TIPOOPERACION IN (11, 11) ' +
+       'AND S1.FDI_TIPOOPERACION IN (11, 12) ' +
        'AND S1.FDI_FECHAOPERACION >= ''' + FormatDateTime('yyyy-mm-dd', FFechaInicio) + ''' ' +
        'AND S1.FDI_FECHAOPERACION <= ''' + FormatDateTime('yyyy-mm-dd', FFechaFin) + ''' ' +
        'ORDER BY S1.FDI_FECHAOPERACION DESC, S1.FDI_DOCUMENTO DESC';
@@ -754,7 +775,7 @@ SQL := 'SELECT S1.FDI_CODIGO, ' +
       DataArray[i, 10] := UpperCase(FQuery.FieldByName('FTI_PERSONACONTACTO').AsString);
       DataArray[i, 11] := UpperCase(FQuery.FieldByName('FC_EMAIL').AsString);
       DataArray[i, 12] := FQuery.FieldByName('FTI_TELEFONOCONTACTO').AsString;
-      DataArray[i, 13] := 'EL PUERTO DEL CAUCHO, C.A.';
+      DataArray[i, 13] := NAME_EMPRESA;  // <- Variable dinámica
 
       // Determinar tipo de documento
       if TipoDoc = 11 then
@@ -784,8 +805,8 @@ SQL := 'SELECT S1.FDI_CODIGO, ' +
     if not DirectoryExists(ExportPath) then
       ForceDirectories(ExportPath);
 
-    // Guardar archivo en carpeta EXPORTADO
-    FileName := ExportPath + PREFIJO+empresa+ 'REPORTE_VENTAS_' +
+    // Guardar archivo en carpeta EXPORTADO con nombre dinámico
+    FileName := ExportPath + NAME_EMPRESA + '_REPORTE_VENTAS_' +
                 FormatDateTime('yyyymmdd_hhnnss', Now) + '.xlsx';
     WorkBook.SaveAs(FileName);
 
@@ -795,6 +816,297 @@ SQL := 'SELECT S1.FDI_CODIGO, ' +
     // Cerrar Excel de forma segura
     SafeCloseExcel(ExcelApp, WorkBook);
   end;
+
+  finally
+    // Finalizar COM
+    CoUninitialize;
+  end;
+end;
+
+{ TReporteVentasDespachadasThread }
+
+// Constructor del Thread para Reporte de Ventas Despachadas
+constructor TReporteVentasDespachadasThread.Create(AFechaInicio, AFechaFin: TDateTime; AQuery: TDBISAMQuery);
+begin
+  inherited Create(False);
+  FFechaInicio := AFechaInicio;
+  FFechaFin := AFechaFin;
+  FQuery := AQuery;
+  FMaxRetries := 3;
+  FRetryDelay := 2000; // 2 segundos
+  FreeOnTerminate := True;
+end;
+
+// Implementación del Thread para Reporte de Ventas Despachadas
+procedure TReporteVentasDespachadasThread.Execute;
+begin
+  try
+    ExportarVentasDespachadasExcel;
+    FMensaje := 'Reporte de Ventas Despachadas exportado correctamente a Excel';
+    FError := False;
+  except
+    on E: Exception do
+    begin
+      FMensaje := 'Error al exportar ventas despachadas: ' + E.Message;
+      FError := True;
+    end;
+  end;
+
+  Synchronize(MostrarMensaje);
+end;
+
+// Procedimiento para mostrar mensaje en el hilo principal
+procedure TReporteVentasDespachadasThread.MostrarMensaje;
+begin
+  ShowMessage(FMensaje);
+end;
+
+// Función auxiliar para crear Excel con reintentos
+function TReporteVentasDespachadasThread.TryCreateExcel(out ExcelApp: Variant): Boolean;
+var
+  Attempt: Integer;
+begin
+  Result := False;
+  ExcelApp := Unassigned;
+
+  for Attempt := 1 to FMaxRetries do
+  begin
+    try
+      ExcelApp := CreateOleObject('Excel.Application');
+      ExcelApp.Visible := False;
+      ExcelApp.DisplayAlerts := False;
+      Result := True;
+      Break;
+    except
+      on E: Exception do
+      begin
+        if Attempt < FMaxRetries then
+        begin
+          Sleep(FRetryDelay);
+          Continue;
+        end
+        else
+          raise Exception.Create('No se pudo crear Excel después de ' + IntToStr(FMaxRetries) + ' intentos: ' + E.Message);
+      end;
+    end;
+  end;
+end;
+
+// Función auxiliar para cerrar Excel de forma segura
+procedure TReporteVentasDespachadasThread.SafeCloseExcel(var ExcelApp, WorkBook: Variant);
+begin
+  try
+    if not VarIsEmpty(WorkBook) and not VarIsNull(WorkBook) then
+    begin
+      try
+        WorkBook.Close(False);
+      except
+        // Ignorar errores al cerrar el libro
+      end;
+      WorkBook := Unassigned;
+    end;
+  except
+    // Ignorar errores
+  end;
+
+  try
+    if not VarIsEmpty(ExcelApp) and not VarIsNull(ExcelApp) then
+    begin
+      try
+        ExcelApp.DisplayAlerts := True;
+        ExcelApp.Quit;
+      except
+        // Ignorar errores al cerrar Excel
+      end;
+      ExcelApp := Unassigned;
+    end;
+  except
+    // Ignorar errores
+  end;
+end;
+
+// Función para exportar ventas despachadas a Excel
+procedure TReporteVentasDespachadasThread.ExportarVentasDespachadasExcel;
+var
+  ExcelApp, WorkBook, WorkSheet: Variant;
+  SQL: string;
+  FileName: string;
+  Cantidad, Monto, Costo, CantidadPendiente, CantidadDespachada: Double;
+  TipoDoc: Integer;
+  DataArray: Variant;
+  RowCount, i: Integer;
+begin
+  // Inicializar COM para este thread con apartamento STA
+  CoInitializeEx(nil, COINIT_APARTMENTTHREADED);
+
+  try
+    // Crear aplicación Excel con reintentos
+    if not TryCreateExcel(ExcelApp) then
+      raise Exception.Create('No se pudo inicializar Excel');
+
+    try
+      // Deshabilitar actualizaciones de pantalla para mejor rendimiento
+      ExcelApp.ScreenUpdating := False;
+
+      // Crear nuevo libro
+      WorkBook := ExcelApp.Workbooks.Add;
+      WorkSheet := WorkBook.Worksheets[1];
+
+      // Configurar encabezados en mayúsculas (15 columnas ahora)
+      WorkSheet.Cells[1, 1] := 'CODIGO';
+      WorkSheet.Cells[1, 2] := 'GRUPO_ID';
+      WorkSheet.Cells[1, 3] := 'FECHA';
+      WorkSheet.Cells[1, 4] := 'CANTIDAD';
+      WorkSheet.Cells[1, 5] := 'CANTIDAD DESPACHADA';  // Nueva columna
+      WorkSheet.Cells[1, 6] := 'MONEDA';
+      WorkSheet.Cells[1, 7] := 'CAMBIO';
+      WorkSheet.Cells[1, 8] := 'MONTO';
+      WorkSheet.Cells[1, 9] := 'COSTO';
+      WorkSheet.Cells[1, 10] := 'DOCUMENTO';
+      WorkSheet.Cells[1, 11] := 'CLIENTE';
+      WorkSheet.Cells[1, 12] := 'CORREO';
+      WorkSheet.Cells[1, 13] := 'TELEF';
+      WorkSheet.Cells[1, 14] := 'EMPRESA';
+      WorkSheet.Cells[1, 15] := 'TIPO DOCUMENTO';
+
+      // Formatear encabezados
+      WorkSheet.Range['A1:O1'].Font.Bold := True;
+      WorkSheet.Range['A1:O1'].Interior.Color := RGB(200, 200, 200);
+
+      // Formatear columnas CODIGO y GRUPO_ID como texto
+      WorkSheet.Columns['A:A'].NumberFormat := '@';  // Columna CODIGO como texto
+      WorkSheet.Columns['B:B'].NumberFormat := '@';  // Columna GRUPO_ID como texto
+
+      // Construir consulta SQL con filtros de fecha y tipos de documento
+      SQL := 'SELECT S1.FDI_CODIGO, ' +
+             'S2.FI_CATEGORIA, ' +
+             'S1.FDI_FECHAOPERACION, ' +
+             'S1.FDI_CANTIDAD, ' +
+             'S1.FDI_CANTIDADPENDIENTE, ' +  // Agregar campo de cantidad pendiente
+             'S1.FDI_MONEDA, ' +
+             'S1.FDI_FACTORCAMBIO, ' +
+             'S1.FDI_PRECIODEVENTA, ' +
+             'S5.FIC_COSTOACTEXTRANJERO AS FDI_COSTODEVENTAS, ' +
+             'S1.FDI_DOCUMENTO, ' +
+             'S3.FTI_PERSONACONTACTO, ' +
+             'S4.FC_EMAIL, ' +
+             'S3.FTI_TELEFONOCONTACTO, ' +
+             'S1.FDI_TIPOOPERACION ' +
+             'FROM SDetalleVenta S1 ' +
+             'INNER JOIN Sinventario S2 ON S1.FDI_CODIGO = S2.FI_CODIGO ' +
+             'INNER JOIN SOperacionInv S3 ON S1.FDI_DOCUMENTO = S3.FTI_DOCUMENTO ' +
+             'INNER JOIN Sclientes S4 ON S1.FDI_CLIENTEPROVEEDOR = S4.FC_CODIGO ' +
+             'INNER JOIN a2InvCostosPrecios S5 ON S1.FDI_CODIGO = S5.FIC_CODEITEM ' +
+             'WHERE S1.FDI_VISIBLE = True ' +
+             'AND S2.FI_STATUS = True ' +
+             'AND S3.FTI_VISIBLE = True ' +
+             'AND S4.FC_STATUS = True ' +
+             'AND S1.FDI_TIPOOPERACION IN (11, 12) ' +
+             'AND S1.FDI_FECHAOPERACION >= ''' + FormatDateTime('yyyy-mm-dd', FFechaInicio) + ''' ' +
+             'AND S1.FDI_FECHAOPERACION <= ''' + FormatDateTime('yyyy-mm-dd', FFechaFin) + ''' ' +
+             'ORDER BY S1.FDI_FECHAOPERACION DESC, S1.FDI_DOCUMENTO DESC';
+
+      // Ejecutar consulta con configuración optimizada
+      FQuery.Close;
+      FQuery.SQL.Text := SQL;
+
+      if FQuery is TDBISAMQuery then
+      begin
+        with TDBISAMQuery(FQuery) do
+        begin
+          RequestLive := False;  // Solo lectura, más rápido
+        end;
+      end;
+      FQuery.Open;
+
+      // Contar registros para dimensionar el array
+      FQuery.Last;
+      RowCount := FQuery.RecordCount;
+      FQuery.First;
+
+      if RowCount = 0 then
+        raise Exception.Create('No hay datos para exportar');
+
+      // Crear array de variantes [filas, columnas] - ahora 15 columnas
+      DataArray := VarArrayCreate([1, RowCount, 1, 15], varVariant);
+
+      // Llenar array con datos del query
+      i := 1;
+      while not FQuery.Eof do
+      begin
+        TipoDoc := FQuery.FieldByName('FDI_TIPOOPERACION').AsInteger;
+        Cantidad := FQuery.FieldByName('FDI_CANTIDAD').AsFloat;
+        CantidadPendiente := FQuery.FieldByName('FDI_CANTIDADPENDIENTE').AsFloat;
+        Monto := FQuery.FieldByName('FDI_PRECIODEVENTA').AsFloat;
+        Costo := FQuery.FieldByName('FDI_COSTODEVENTAS').AsFloat;
+
+        // Calcular cantidad despachada = cantidad - cantidad pendiente
+        CantidadDespachada := Cantidad - CantidadPendiente;
+
+        // Si es devolución (tipo 12), convertir a negativo
+        if TipoDoc = 12 then
+        begin
+          Cantidad := -Abs(Cantidad);
+          CantidadDespachada := -Abs(CantidadDespachada);
+          Monto := -Abs(Monto);
+          Costo := -Abs(Costo);
+        end;
+
+        // Llenar array (mucho más rápido que escribir celda por celda)
+        DataArray[i, 1] := '''' + UpperCase(FQuery.FieldByName('FDI_CODIGO').AsString);
+        DataArray[i, 2] := '''' + UpperCase(FQuery.FieldByName('FI_CATEGORIA').AsString);
+        DataArray[i, 3] := FQuery.FieldByName('FDI_FECHAOPERACION').AsDateTime;
+        DataArray[i, 4] := Cantidad;
+        DataArray[i, 5] := CantidadDespachada;  // Nueva columna
+        DataArray[i, 6] := UpperCase(FQuery.FieldByName('FDI_MONEDA').AsString);
+        DataArray[i, 7] := FQuery.FieldByName('FDI_FACTORCAMBIO').AsFloat;
+        DataArray[i, 8] := Monto;
+        DataArray[i, 9] := Costo;
+        DataArray[i, 10] := FQuery.FieldByName('FDI_DOCUMENTO').AsString;
+        DataArray[i, 11] := UpperCase(FQuery.FieldByName('FTI_PERSONACONTACTO').AsString);
+        DataArray[i, 12] := UpperCase(FQuery.FieldByName('FC_EMAIL').AsString);
+        DataArray[i, 13] := FQuery.FieldByName('FTI_TELEFONOCONTACTO').AsString;
+        DataArray[i, 14] := NAME_EMPRESA;  // <- Variable dinámica
+
+        // Determinar tipo de documento
+        if TipoDoc = 11 then
+          DataArray[i, 15] := 'FACTURA'
+        else if TipoDoc = 12 then
+          DataArray[i, 15] := 'N.C.'
+        else
+          DataArray[i, 15] := 'OTRO';
+
+        Inc(i);
+        FQuery.Next;
+      end;
+
+      FQuery.Close;
+
+      // Escribir todo el array de una sola vez a Excel (1 sola llamada COM)
+      WorkSheet.Range[WorkSheet.Cells[2, 1], WorkSheet.Cells[RowCount + 1, 15]].Value := DataArray;
+
+      // Reactivar actualizaciones antes de autoajustar
+      ExcelApp.ScreenUpdating := True;
+
+      // Autoajustar columnas
+      WorkSheet.Columns.AutoFit;
+
+      // Crear carpeta EXPORTADO si no existe
+      var ExportPath := ExtractFilePath(Application.ExeName) + 'EXPORTADO\';
+      if not DirectoryExists(ExportPath) then
+        ForceDirectories(ExportPath);
+
+      // Guardar archivo en carpeta EXPORTADO con nombre dinámico
+      FileName := ExportPath + NAME_EMPRESA + '_REPORTE_VENTAS_DESPACHADAS_' +
+                  FormatDateTime('yyyymmdd_hhnnss', Now) + '.xlsx';
+      WorkBook.SaveAs(FileName);
+
+      FMensaje := 'Archivo guardado en: ' + FileName;
+
+    finally
+      // Cerrar Excel de forma segura
+      SafeCloseExcel(ExcelApp, WorkBook);
+    end;
 
   finally
     // Finalizar COM
@@ -1047,7 +1359,7 @@ begin
       DataArray[i, 10] := UpperCase(FQuery.FieldByName('FTI_PERSONACONTACTO').AsString);
       DataArray[i, 11] := UpperCase(FQuery.FieldByName('FC_EMAIL').AsString);
       DataArray[i, 12] := FQuery.FieldByName('FTI_TELEFONOCONTACTO').AsString;
-      DataArray[i, 13] := 'EL PUERTO DEL CAUCHO, C.A.';
+      DataArray[i, 13] := NAME_EMPRESA;  // <- Variable dinámica
 
       // Determinar tipo de documento
       if TipoDoc = 11 then
@@ -1077,8 +1389,8 @@ begin
     if not DirectoryExists(ExportPath) then
       ForceDirectories(ExportPath);
 
-    // Guardar archivo en carpeta EXPORTADO
-    FileName := ExportPath + PREFIJO+empresa+ 'REPORTE_COMPRAS_' +
+    // Guardar archivo en carpeta EXPORTADO con nombre dinámico
+    FileName := ExportPath + NAME_EMPRESA + '_REPORTE_COMPRAS_' +
                 FormatDateTime('yyyymmdd_hhnnss', Now) + '.xlsx';
     WorkBook.SaveAs(FileName);
 
@@ -1430,8 +1742,8 @@ begin
     end;
     WriteLog('Carpeta EXPORTADO verificada: ' + ExportPath);
 
-    // Guardar archivo en carpeta EXPORTADO
-    FileName := ExportPath + PREFIJO+empresa+'REPORTE_INVENTARIO_' +
+    // Guardar archivo en carpeta EXPORTADO con nombre dinámico
+    FileName := ExportPath + NAME_EMPRESA + '_REPORTE_INVENTARIO_' +
                 FormatDateTime('yyyymmdd_hhnnss', Now) + '.xlsx';
     WriteLog('Nombre de archivo: ' + FileName);
 
@@ -1506,6 +1818,20 @@ begin
   end;
 
   Thread := TReporteVentasThread.Create(dtp1.Date, dtp2.Date, sqProductosVendidos);
+end;
+
+// Función para ejecutar Reporte de Ventas Despachadas
+procedure TformExport.EjecutarReporteVentasDespachadas;
+var
+  Thread: TReporteVentasDespachadasThread;
+begin
+  if dtp1.Date > dtp2.Date then
+  begin
+    ShowMessage('La fecha inicial no puede ser mayor que la fecha final');
+    Exit;
+  end;
+
+  Thread := TReporteVentasDespachadasThread.Create(dtp1.Date, dtp2.Date, sqProductosVendidos);
 end;
 
 // Función para ejecutar Reporte de Compras
@@ -1628,7 +1954,7 @@ begin
     1: EjecutarReporteCompras;
     2: EjecutarReporteInventario;
     3: EjecutarReportesdelDia;
-    4: EjecutarReporteInventarioInicio;  // Aqui Vamos a ejecutar el de ventas - entregado
+    4: EjecutarReporteVentasDespachadas;  // Reporte de Ventas Despachadas
   else
     ShowMessage('Seleccione un tipo de reporte');
   end;

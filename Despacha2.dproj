@@ -166,7 +166,7 @@
         <DCCReference Include="UnitListaPrecios.pas">
             <Form>FormLista</Form>
         </DCCReference>
-        <DCCReference Include="unitvariables.pas"/>
+        <DCCReference Include="unitVariables.pas"/>
         <DCCReference Include="UnitVariablesGlobales.pas"/>
         <DCCReference Include="UnitiCompras.pas">
             <Form>formiCompras</Form>

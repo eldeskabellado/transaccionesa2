@@ -422,6 +422,7 @@ object Form2: TForm2
         FDFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
         FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF}
       Layout = blGlyphTop
+      Visible = False
       OnClick = btn1Click
       ExplicitLeft = -5
       ExplicitTop = 0
@@ -1075,7 +1076,6 @@ object Form2: TForm2
         FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
         FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF}
       Layout = blGlyphTop
-      Visible = False
       OnClick = btn4Click
       ExplicitLeft = 251
       ExplicitTop = 2
