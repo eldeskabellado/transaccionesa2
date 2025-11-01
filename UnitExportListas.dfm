@@ -2,7 +2,7 @@ object formExport: TformExport
   Left = 0
   Top = 0
   Caption = 'formExport'
-  ClientHeight = 307
+  ClientHeight = 358
   ClientWidth = 282
   Color = clWhite
   Font.Charset = DEFAULT_CHARSET
@@ -85,13 +85,13 @@ object formExport: TformExport
     Left = 0
     Top = 121
     Width = 282
-    Height = 186
+    Height = 237
     Align = alClient
     BevelOuter = bvNone
     TabOrder = 1
     object btnProcesar: TButton
       Left = 0
-      Top = 113
+      Top = 164
       Width = 282
       Height = 73
       Align = alBottom
@@ -103,14 +103,15 @@ object formExport: TformExport
       Left = 16
       Top = 6
       Width = 257
-      Height = 101
+      Height = 131
       Caption = 'Seleccione el Reporte    '
       ItemIndex = 3
       Items.Strings = (
         'Ventas'
         'Compras'
         'Inventario'
-        'Todos')
+        'Todos'
+        'Reporte Ventas - Entregados')
       TabOrder = 1
     end
   end

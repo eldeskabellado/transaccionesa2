@@ -1,0 +1,344 @@
+unit UnitFormCXP;
+
+interface
+
+uses
+  Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants, System.Classes,
+  Vcl.Graphics, Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.StdCtrls, Data.DB,
+  Vcl.Grids, Vcl.DBGrids, dbisamtb, UnitDatos;
+
+type
+  TformCXP = class(TForm)
+    edt1: TEdit;
+    btn1: TButton;
+    lblProveedor: TLabel;
+    DBGrid1: TDBGrid;
+    sqCXP: TDBISAMQuery;
+    dsqCXP: TDataSource;
+    procedure FormCreate(Sender: TObject);
+    procedure edt1Change(Sender: TObject);
+    procedure btn1Click(Sender: TObject);
+    procedure FormClose(Sender: TObject; var Action: TCloseAction);
+  private
+    FUpdatingFromSearch: Boolean;
+    procedure ConfigurarQuery;
+    procedure EjecutarConsultaCXP(const CodigoProveedor: string);
+    procedure LimpiarFormulario;
+  public
+    procedure CargarProveedorPorCodigo(const Codigo: string);
+    procedure ActualizarGridCXP;
+  end;
+
+var
+  formCXP: TformCXP;
+
+// Funciones auxiliares públicas de la unidad
+function ObtenerNombreProveedor(const CodigoProveedor: string): string;
+function ValidarCodigoProveedor(const Codigo: string): Boolean;
+function CalcularTotalCXPProveedor(const CodigoProveedor: string): Currency;
+function ContarDocumentosPendientes(const CodigoProveedor: string): Integer;
+
+implementation
+
+{$R *.dfm}
+
+uses UnitBuscarProveedor;
+
+{$REGION 'Funciones Auxiliares de la Unidad'}
+
+function ObtenerNombreProveedor(const CodigoProveedor: string): string;
+var
+  qTemp: TDBISAMQuery;
+begin
+  Result := '';
+
+  if Trim(CodigoProveedor) = '' then
+    Exit;
+
+  qTemp := TDBISAMQuery.Create(nil);
+  try
+    qTemp.DatabaseName := d.datprincipal.DatabaseName;
+    qTemp.SQL.Text := 'SELECT FP_DESCRIPCION FROM Sproveedor WHERE FP_CODIGO = :CODIGO';
+    qTemp.ParamByName('CODIGO').AsString := CodigoProveedor;
+
+    try
+      qTemp.Open;
+      if not qTemp.IsEmpty then
+        Result := qTemp.FieldByName('FP_DESCRIPCION').AsString;
+    except
+      on E: Exception do
+        Result := '';
+    end;
+  finally
+    qTemp.Free;
+  end;
+end;
+
+function ValidarCodigoProveedor(const Codigo: string): Boolean;
+var
+  qTemp: TDBISAMQuery;
+begin
+  Result := False;
+
+  if Trim(Codigo) = '' then
+    Exit;
+
+  qTemp := TDBISAMQuery.Create(nil);
+  try
+    qTemp.DatabaseName := d.datprincipal.DatabaseName;
+    qTemp.SQL.Text := 'SELECT FP_CODIGO FROM Sproveedor WHERE FP_CODIGO = :CODIGO';
+    qTemp.ParamByName('CODIGO').AsString := Codigo;
+
+    try
+      qTemp.Open;
+      Result := not qTemp.IsEmpty;
+    except
+      Result := False;
+    end;
+  finally
+    qTemp.Free;
+  end;
+end;
+
+function CalcularTotalCXPProveedor(const CodigoProveedor: string): Currency;
+var
+  qTemp: TDBISAMQuery;
+begin
+  Result := 0;
+
+  if Trim(CodigoProveedor) = '' then
+    Exit;
+
+  qTemp := TDBISAMQuery.Create(nil);
+  try
+    qTemp.DatabaseName := d.datprincipal.DatabaseName;
+    qTemp.SQL.Text := 'SELECT SUM(FCP_SALDOMONEDAEXT) AS TOTAL ' +
+                      'FROM Scuentasxpagar ' +
+                      'WHERE FCP_TIPOTRANSACCION = 1 ' +
+                      'AND FCP_CODIGO = :CODIGO ' +
+                      'AND FCP_SALDOMONEDAEXT > 0';
+    qTemp.ParamByName('CODIGO').AsString := CodigoProveedor;
+
+    try
+      qTemp.Open;
+      if not qTemp.IsEmpty then
+        Result := qTemp.FieldByName('TOTAL').AsCurrency;
+    except
+      Result := 0;
+    end;
+  finally
+    qTemp.Free;
+  end;
+end;
+
+function ContarDocumentosPendientes(const CodigoProveedor: string): Integer;
+var
+  qTemp: TDBISAMQuery;
+begin
+  Result := 0;
+
+  if Trim(CodigoProveedor) = '' then
+    Exit;
+
+  qTemp := TDBISAMQuery.Create(nil);
+  try
+    qTemp.DatabaseName := d.datprincipal.DatabaseName;
+    qTemp.SQL.Text := 'SELECT COUNT(*) AS CANTIDAD ' +
+                      'FROM Scuentasxpagar ' +
+                      'WHERE FCP_TIPOTRANSACCION = 1 ' +
+                      'AND FCP_CODIGO = :CODIGO ' +
+                      'AND FCP_SALDOMONEDAEXT > 0';
+    qTemp.ParamByName('CODIGO').AsString := CodigoProveedor;
+
+    try
+      qTemp.Open;
+      if not qTemp.IsEmpty then
+        Result := qTemp.FieldByName('CANTIDAD').AsInteger;
+    except
+      Result := 0;
+    end;
+  finally
+    qTemp.Free;
+  end;
+end;
+
+{$ENDREGION}
+
+{$REGION 'Métodos del Formulario'}
+
+procedure TformCXP.FormCreate(Sender: TObject);
+begin
+  FUpdatingFromSearch := False;
+
+  // Configurar el query de CXP
+  ConfigurarQuery;
+
+  // Limpiar formulario
+  LimpiarFormulario;
+
+  // Conectar DataSource al Query y al Grid
+  dsqCXP.DataSet := sqCXP;
+  DBGrid1.DataSource := dsqCXP;
+
+  // Configurar apariencia del grid
+  with DBGrid1 do
+  begin
+    Options := Options + [dgRowSelect, dgAlwaysShowSelection];
+    ReadOnly := True;
+  end;
+
+  // Configurar caption del botón
+  btn1.Caption := 'Buscar Proveedor...';
+end;
+
+procedure TformCXP.ConfigurarQuery;
+begin
+  sqCXP.DatabaseName := d.datprincipal.DatabaseName;
+  sqCXP.SQL.Clear;
+  sqCXP.SQL.Add('SELECT');
+  sqCXP.SQL.Add('    FCP_CODIGO,');
+  sqCXP.SQL.Add('    FCP_FECHAEMISION,');
+  sqCXP.SQL.Add('    FCP_FECHAVENCIMIENTO,');
+  sqCXP.SQL.Add('    FCP_CODIGOUNICO,');
+  sqCXP.SQL.Add('    FCP_CODIGOUNICO2,');
+  sqCXP.SQL.Add('    FCP_TIPOTRANSACCION,');
+  sqCXP.SQL.Add('    FCP_TIPOOPERACION,');
+  sqCXP.SQL.Add('    FCP_DESCRIPCIONMOV,');
+  sqCXP.SQL.Add('    FCP_MONTODOCUMENTO,');
+  sqCXP.SQL.Add('    FCP_SALDOMONEDAEXT,');
+  sqCXP.SQL.Add('    FCP_MONEDA,');
+  sqCXP.SQL.Add('    FCP_MONTOORIGINALEXT');
+  sqCXP.SQL.Add('FROM');
+  sqCXP.SQL.Add('    Scuentasxpagar');
+  sqCXP.SQL.Add('WHERE');
+  sqCXP.SQL.Add('    FCP_TIPOTRANSACCION = 1');
+  sqCXP.SQL.Add('    AND FCP_CODIGO = :CODIGOPROVEEDOR');
+  sqCXP.SQL.Add('    AND FCP_SALDOMONEDAEXT > 0');
+  sqCXP.SQL.Add('ORDER BY FCP_FECHAVENCIMIENTO');
+end;
+
+procedure TformCXP.LimpiarFormulario;
+begin
+  edt1.Clear;
+  lblProveedor.Caption := '';
+  sqCXP.Close;
+end;
+
+procedure TformCXP.EjecutarConsultaCXP(const CodigoProveedor: string);
+var
+  NombreProveedor: string;
+  TotalCXP: Currency;
+  CantidadDocs: Integer;
+begin
+  if Trim(CodigoProveedor) = '' then
+  begin
+    LimpiarFormulario;
+    Exit;
+  end;
+
+  // Validar que el proveedor existe
+  if not ValidarCodigoProveedor(CodigoProveedor) then
+  begin
+    ShowMessage('El código de proveedor "' + CodigoProveedor + '" no existe.');
+    LimpiarFormulario;
+    Exit;
+  end;
+
+  try
+    // Obtener nombre del proveedor
+    NombreProveedor := ObtenerNombreProveedor(CodigoProveedor);
+    lblProveedor.Caption := NombreProveedor;
+
+    // Ejecutar consulta de CXP
+    sqCXP.Close;
+    sqCXP.ParamByName('CODIGOPROVEEDOR').AsString := CodigoProveedor;
+    sqCXP.Open;
+
+    // Mostrar información adicional
+    if sqCXP.IsEmpty then
+    begin
+      ShowMessage('El proveedor "' + NombreProveedor + '" no tiene cuentas por pagar pendientes.');
+      Caption := 'Cuentas por Pagar - Sin documentos pendientes';
+    end
+    else
+    begin
+      CantidadDocs := ContarDocumentosPendientes(CodigoProveedor);
+      TotalCXP := CalcularTotalCXPProveedor(CodigoProveedor);
+
+      Caption := Format('Cuentas por Pagar - %s - %d documento(s) - Total: %s',
+        [NombreProveedor, CantidadDocs, FormatCurr('#,##0.00', TotalCXP)]);
+    end;
+
+  except
+    on E: Exception do
+    begin
+      ShowMessage('Error al consultar CXP: ' + E.Message);
+      LimpiarFormulario;
+    end;
+  end;
+end;
+
+procedure TformCXP.edt1Change(Sender: TObject);
+begin
+  // Solo ejecutar si NO estamos actualizando desde la búsqueda
+  if not FUpdatingFromSearch then
+  begin
+    EjecutarConsultaCXP(Trim(edt1.Text));
+  end;
+end;
+
+procedure TformCXP.btn1Click(Sender: TObject);
+var
+  FormBusqueda: TFormBuscarProveedor;
+begin
+  FormBusqueda := TFormBuscarProveedor.Create(Self);
+  try
+    if FormBusqueda.ShowModal = mrOK then
+    begin
+      // Activar flag para evitar doble ejecución en edt1Change
+      FUpdatingFromSearch := True;
+      try
+        // Actualizar controles con datos del proveedor seleccionado
+        edt1.Text := FormBusqueda.CodigoProveedorSeleccionado;
+        lblProveedor.Caption := FormBusqueda.NombreProveedorSeleccionado;
+
+        // Ejecutar consulta de CXP
+        EjecutarConsultaCXP(FormBusqueda.CodigoProveedorSeleccionado);
+      finally
+        FUpdatingFromSearch := False;
+      end;
+    end;
+  finally
+    FormBusqueda.Free;
+  end;
+end;
+
+procedure TformCXP.FormClose(Sender: TObject; var Action: TCloseAction);
+begin
+  sqCXP.Close;
+end;
+
+{$ENDREGION}
+
+{$REGION 'Métodos Públicos'}
+
+procedure TformCXP.CargarProveedorPorCodigo(const Codigo: string);
+begin
+  FUpdatingFromSearch := True;
+  try
+    edt1.Text := Codigo;
+    EjecutarConsultaCXP(Codigo);
+  finally
+    FUpdatingFromSearch := False;
+  end;
+end;
+
+procedure TformCXP.ActualizarGridCXP;
+begin
+  if sqCXP.Active then
+    sqCXP.Refresh;
+end;
+
+{$ENDREGION}
+
+end.

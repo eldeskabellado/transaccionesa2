@@ -73,7 +73,7 @@ object FormVerFactura: TFormVerFactura
     Top = 8
     Width = 75
     Height = 25
-    Caption = 'Ver Facturas'
+    Caption = 'Ver Pedidos'
     TabOrder = 2
     OnClick = Button1Click
   end
@@ -82,9 +82,7 @@ object FormVerFactura: TFormVerFactura
     EngineVersion = '4.49 Build 4'
     SQL.Strings = (
       'SELECT * FROM SOPERACIONINV'
-      
-        'WHERE FTI_TIPO = :TTIPO AND FTI_FECHAEMISION = :Tfecha AND FTI_D' +
-        'OCUMENTO <>  '#39'PENDIENTE'#39
+      'WHERE FTI_TIPO = :TTIPO AND FTI_FECHAEMISION = :Tfecha'
       'Order By FTI_FECHAEMISION asc')
     Params = <
       item

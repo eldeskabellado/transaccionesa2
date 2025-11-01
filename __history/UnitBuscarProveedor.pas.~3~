@@ -1,0 +1,30 @@
+unit UnitBuscarProveedor;
+
+interface
+
+uses
+  Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants, System.Classes, Vcl.Graphics,
+  Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Data.DB, Vcl.StdCtrls, Vcl.Grids,
+  Vcl.DBGrids, dbisamtb;
+
+type
+  TForm3 = class(TForm)
+    DBGrid1: TDBGrid;
+    edt1: TEdit;
+    btn1: TButton;
+    sqProveedor: TDBISAMQuery;
+    dsqProveedor: TDataSource;
+  private
+    { Private declarations }
+  public
+    { Public declarations }
+  end;
+
+var
+  Form3: TForm3;
+
+implementation
+
+{$R *.dfm}
+
+end.

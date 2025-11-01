@@ -1,0 +1,1071 @@
+﻿unit EvolutionAPI;
+
+interface
+
+uses
+  System.SysUtils, System.Classes, System.JSON, System.Net.HttpClient,
+  System.Net.URLClient, System.Net.HttpClientComponent, Vcl.Forms,
+  System.IOUtils, System.DateUtils, System.Variants, System.NetEncoding;
+
+type
+  // Enumeración para tipos de media
+  TMediaType = (mtImage, mtDocument, mtAudio, mtVideo);
+  
+  // Tipos de datos para la API
+  TEvolutionResponse = record
+    Success: Boolean;
+    Message: string;
+    Data: string;
+    ErrorCode: Integer;
+  end;
+  
+  // Estructura para envío de medios
+  TMediaMessage = record
+    MediaType: TMediaType;
+    FileName: string;
+    Caption: string;
+    FilePath: string;
+    Base64Data: string;
+  end;
+  
+  // Opciones para el envío de mensajes
+  TMessageOptions = record
+    Delay: Integer;
+    Presence: string; // 'composing', 'recording', etc.
+  end;
+  
+  // Estructura para mensaje citado
+  TQuotedKey = record
+    RemoteJid: string;
+    FromMe: Boolean;
+    Id: string;
+    Participant: string;
+  end;
+  
+  TQuotedMessage = record
+    Conversation: string;
+  end;
+  
+  TQuoted = record
+    Key: TQuotedKey;
+    Message: TQuotedMessage;
+  end;
+  
+  // Estructura para menciones
+  TMentions = record
+    EveryOne: Boolean;
+    Mentioned: TArray<string>;
+  end;
+  
+  // Opciones avanzadas para mensajes de texto
+  TTextMessageOptions = record
+    Delay: Integer;
+    Presence: string;
+    LinkPreview: Boolean;
+    Quoted: TQuoted;
+    Mentions: TMentions;
+    UseQuoted: Boolean;
+    UseMentions: Boolean;
+  end;
+
+  THistoriaRegistrada = record
+    PacienteID: string;
+    Nombre: string;
+    Apellido: string;
+    FechaNacimiento: TDateTime;
+    Historia: string;
+    FechaRegistro: TDateTime;
+  end;
+
+  TResultadoExamen = record
+    ExamenID: string;
+    PacienteID: string;
+    TipoExamen: string;
+    Resultado: string;
+    FechaExamen: TDateTime;
+    PDFPath: string;
+    Observaciones: string;
+  end;
+
+  TRecordatorioCita = record
+    CitaID: string;
+    PacienteID: string;
+    FechaCita: TDateTime;
+    TipoCita: string;
+    Medico: string;
+    Observaciones: string;
+  end;
+
+  TRecomendacion = record
+    RecomendacionID: string;
+    PacienteID: string;
+    TipoRecomendacion: string;
+    Descripcion: string;
+    FechaCreacion: TDateTime;
+    Prioridad: string;
+  end;
+
+  // Clase principal para la API Evolution
+  TEvolutionAPI = class
+  private
+    FBaseURL: string;
+    FInstanceID: string;
+    FAPIKey: string;
+    FTimeout: Integer;
+    FHttpClient: THTTPClient;
+    function SendRequest(const AEndpoint: string; const AData: string): TEvolutionResponse;
+    function GeneratePDF(const AContent: string; const AFileName: string): string;
+    function FileToBase64(const AFilePath: string): string;
+    function GetMediaTypeString(AMediaType: TMediaType): string;
+    function DetectMediaTypeFromFile(const AFilePath: string): TMediaType;
+  public
+    constructor Create(const ABaseURL: string = 'https://evolution.ek2.online'; 
+                      const AInstanceID: string = 'academia'; const AAPIKey: string = ''; ATimeout: Integer = 30000);
+    destructor Destroy; override;
+    
+    // Propiedades
+    property BaseURL: string read FBaseURL write FBaseURL;
+    property InstanceID: string read FInstanceID write FInstanceID;
+    property APIKey: string read FAPIKey write FAPIKey;
+    property Timeout: Integer read FTimeout write FTimeout;
+    
+    // Funciones principales de la API
+    function MensajeBienvenida(const APacienteID: string; const ANombre: string): TEvolutionResponse;
+    function HistoriaRegistrada(const AHistoria: THistoriaRegistrada): TEvolutionResponse;
+    function ResultadoExamen(const AResultado: TResultadoExamen; AGenerarPDF: Boolean = True): TEvolutionResponse;
+    function RecordatorioDeCita(const ARecordatorio: TRecordatorioCita): TEvolutionResponse;
+    function Recomendacion(const ARecomendacion: TRecomendacion): TEvolutionResponse;
+    
+    // Funciones auxiliares
+    function GetLastError: string;
+    
+    // Funciones específicas de Evolution API
+    function GetQRCode: TEvolutionResponse;
+    function GetInstanceStatus: TEvolutionResponse;
+    function SendMessage(const ANumber: string; const AMessage: string): TEvolutionResponse;
+    function SendMessageV2(const ANumber: string; const AMessage: string; const AOptions: TTextMessageOptions): TEvolutionResponse; overload;
+    function SendMessageV2(const ANumber: string; const AMessage: string; ADelay: Integer = 0; const APresence: string = 'composing'; ALinkPreview: Boolean = true): TEvolutionResponse; overload;
+    function SendMessageWithMentions(const ANumber: string; const AMessage: string; const AMentioned: TArray<string>; AMentionEveryone: Boolean = false): TEvolutionResponse;
+    function SendQuotedMessage(const ANumber: string; const AMessage: string; const AQuotedJid: string; const AQuotedId: string; const AQuotedText: string): TEvolutionResponse;
+    function SendMediaMessage(const ANumber: string; const AMediaPath: string; const ACaption: string = ''): TEvolutionResponse;
+    function SendMediaMessageV2(const ANumber: string; const AMediaMessage: TMediaMessage; const AOptions: TMessageOptions): TEvolutionResponse; overload;
+    function SendMediaMessageV2(const ANumber: string; const AFilePath: string; const ACaption: string = ''; ADelay: Integer = 0; const APresence: string = 'composing'): TEvolutionResponse; overload;
+    function SendPDFMessage(const ANumber: string; const APDFPath: string; const ACaption: string = ''; ADelay: Integer = 0): TEvolutionResponse;
+    function SendImageMessage(const ANumber: string; const AImagePath: string; const ACaption: string = ''; ADelay: Integer = 0): TEvolutionResponse;
+    function SendMediaSimple(const ANumber: string; const AFilePath: string; const ACaption: string = ''): TEvolutionResponse;
+    function GenerateMediaJSON(const ANumber: string; const AFilePath: string; const ACaption: string = ''): string;
+    function LogoutInstance: TEvolutionResponse;
+    function RestartInstance: TEvolutionResponse;
+    function TestConnection: TEvolutionResponse;
+    function CreateInstanceAndGetQR(const AInstanceName, APhoneNumber, AWebhookUrl: string): TEvolutionResponse;
+    function IsInstanceConnected: Boolean;
+
+  end;
+
+  // Funciones globales para facilitar el uso
+  function CreateEvolutionAPI(const ABaseURL: string = ''; const AInstanceID: string = ''; const AAPIKey: string = ''): TEvolutionAPI;
+  function FormatEvolutionDateTime(const ADateTime: TDateTime): string;
+
+implementation
+
+uses
+  Vcl.Dialogs;
+
+var
+  GlobalEvolutionAPI: TEvolutionAPI;
+
+{ TEvolutionAPI }
+
+constructor TEvolutionAPI.Create(const ABaseURL: string; const AInstanceID: string; const AAPIKey: string; ATimeout: Integer);
+begin
+  inherited Create;
+  FBaseURL := ABaseURL;
+  FInstanceID := AInstanceID;
+  FAPIKey := AAPIKey;
+  FTimeout := ATimeout;
+  FHttpClient := THTTPClient.Create;
+  FHttpClient.ConnectionTimeout := FTimeout;
+  FHttpClient.ResponseTimeout := FTimeout;
+end;
+
+destructor TEvolutionAPI.Destroy;
+begin
+  FHttpClient.Free;
+  inherited Destroy;
+end;
+
+function TEvolutionAPI.IsInstanceConnected: Boolean;
+var
+  Response: TEvolutionResponse;
+  JSONObj: TJSONObject;
+  InstanceObj: TJSONObject;
+  State: string;
+begin
+  Result := False;
+
+  try
+    Response := GetInstanceStatus;
+
+    if Response.Success then
+    begin
+      JSONObj := TJSONObject.ParseJSONValue(Response.Data) as TJSONObject;
+      if Assigned(JSONObj) then
+      begin
+        try
+          InstanceObj := JSONObj.GetValue<TJSONObject>('instance');
+          if Assigned(InstanceObj) then
+          begin
+            State := InstanceObj.GetValue<string>('state');
+            Result := (LowerCase(State) = 'open');
+          end;
+        finally
+          JSONObj.Free;
+        end;
+      end;
+    end;
+  except
+    Result := False;
+  end;
+end;
+
+
+
+function TEvolutionAPI.SendRequest(const AEndpoint: string; const AData: string): TEvolutionResponse;
+var
+  Response: IHTTPResponse;
+  JSONRequest: string;
+  JSONResponse: TJSONObject;
+  URL: string;
+begin
+  Result.Success := False;
+  Result.Message := '';
+  Result.Data := '';
+  Result.ErrorCode := 0;
+
+  try
+    // --- MODIFICACIÓN CLAVE AQUÍ ---
+    // El endpoint de creación es diferente, no lleva el InstanceID
+    if (Pos('/instance/create', AEndpoint) > 0) then
+    begin
+      URL := FBaseURL + AEndpoint;
+    end
+    // Para los demás endpoints que usan la instancia en la URL
+    else if (Pos('/connect', AEndpoint) > 0) or (Pos('/connectionState', AEndpoint) > 0) then
+      URL := FBaseURL + '/instance' + AEndpoint + '/' + FInstanceID
+    else if (Pos('/message/sendMedia', AEndpoint) > 0) or (Pos('/message/sendText', AEndpoint) > 0) then
+      URL := FBaseURL + AEndpoint + '/' + FInstanceID
+    else
+      URL := FBaseURL + '/instance' + AEndpoint + '/' + FInstanceID;
+
+    FHttpClient.CustomHeaders['Content-Type'] := 'application/json';
+    FHttpClient.CustomHeaders['apikey'] := FAPIKey;
+
+    {$IFDEF DEBUG}
+    ShowMessage('URL generada: ' + URL + #13#10 + 'Datos: ' + AData);
+    {$ENDIF}
+
+    // La creación de instancia y envío de mensajes son POST
+    if (Pos('/instance/create', AEndpoint) > 0) or (Pos('/message/', AEndpoint) > 0) then
+    begin
+      JSONRequest := AData;
+      Response := FHttpClient.Post(URL, TStringStream.Create(JSONRequest, TEncoding.UTF8));
+    end
+    // Para endpoints que requieren GET (connect, connectionState)
+    else
+    begin
+      Response := FHttpClient.Get(URL);
+    end;
+
+    if (Response.StatusCode = 200) or (Response.StatusCode = 201) then
+    begin
+      Result.Success := True;
+      Result.Message := 'Success';
+      Result.Data := Response.ContentAsString(TEncoding.UTF8); // Usar UTF8 es buena práctica
+
+      try
+        JSONResponse := TJSONObject.ParseJSONValue(Response.ContentAsString(TEncoding.UTF8)) as TJSONObject;
+        if Assigned(JSONResponse) then
+        begin
+          if JSONResponse.TryGetValue<string>('message', Result.Message) then
+            // Usar el mensaje de la respuesta si existe
+          else if JSONResponse.TryGetValue<string>('error', Result.Message) then
+          begin
+            Result.Success := False;
+          end;
+          Result.ErrorCode := JSONResponse.GetValue<Integer>('errorCode', 0);
+          JSONResponse.Free;
+        end;
+      except
+        // Si no se puede parsear como JSON, no es problema
+      end;
+    end
+    else
+    begin
+      Result.Success := False;
+      Result.Message := 'Error HTTP: ' + IntToStr(Response.StatusCode) + ' - ' + Response.StatusText;
+      Result.Data := Response.ContentAsString(TEncoding.UTF8);
+      Result.ErrorCode := Response.StatusCode;
+    end;
+
+  except
+    on E: Exception do
+    begin
+      Result.Success := False;
+      Result.Message := 'Error de conexión: ' + E.Message;
+      Result.ErrorCode := -1;
+    end;
+  end;
+end;
+// En tu clase TEvolutionAPI
+
+function TEvolutionAPI.CreateInstanceAndGetQR(const AInstanceName, APhoneNumber, AWebhookUrl: string): TEvolutionResponse;
+var
+  JSONPayload: TJSONObject;
+begin
+  // Construimos el JSON para la creación de la instancia
+  JSONPayload := TJSONObject.Create;
+  try
+    JSONPayload.AddPair('instanceName', AInstanceName);
+    JSONPayload.AddPair('qrcode', TJSONBool.Create(True)); // ¡Importante! Indica que genere el QR
+    JSONPayload.AddPair('number', APhoneNumber);
+    if AWebhookUrl <> '' then
+      JSONPayload.AddPair('webhook', AWebhookUrl);
+    // Puedes añadir más parámetros si lo necesitas (token, etc.)
+
+    // Llamamos a SendRequest con el endpoint correcto y el payload
+    Result := SendRequest('/instance/create', JSONPayload.ToString);
+  finally
+    JSONPayload.Free;
+  end;
+end;
+
+function TEvolutionAPI.GeneratePDF(const AContent: string; const AFileName: string): string;
+var
+  PDFContent: TStringList;
+  PDFPath: string;
+begin
+  // Simulación de generación de PDF - En un caso real usarías una librería como QuickPDF o FastReport
+  PDFPath := ExtractFilePath(Application.ExeName) + 'PDFs\';
+  if not TDirectory.Exists(PDFPath) then
+    TDirectory.CreateDirectory(PDFPath);
+    
+  PDFPath := PDFPath + AFileName + '_' + System.SysUtils.FormatDateTime('yyyymmdd_hhnnss', Now) + '.pdf';
+  
+  PDFContent := TStringList.Create;
+  try
+    PDFContent.Add('=== REPORTE MÉDICO ===');
+    PDFContent.Add('Fecha de generación: ' + DateTimeToStr(Now));
+    PDFContent.Add('');
+    PDFContent.Add(AContent);
+    PDFContent.Add('');
+    PDFContent.Add('=== FIN DEL REPORTE ===');
+    
+    // En un caso real, aquí generarías el PDF usando una librería especializada
+    PDFContent.SaveToFile(ChangeFileExt(PDFPath, '.txt')); // Guardamos como texto por simplicidad
+    
+    Result := ChangeFileExt(PDFPath, '.txt');
+  finally
+    PDFContent.Free;
+  end;
+end;
+
+function TEvolutionAPI.FileToBase64(const AFilePath: string): string;
+var
+  FileStream: TFileStream;
+  Base64Stream: TStringStream;
+  FileSize: Int64;
+const
+  MAX_FILE_SIZE = 2 * 1024 * 1024;
+begin
+  Result := '';
+  if not TFile.Exists(AFilePath) then
+    raise Exception.Create('Archivo no encontrado: ' + AFilePath);
+
+  FileStream := TFileStream.Create(AFilePath, fmOpenRead);
+  try
+    FileSize := FileStream.Size;
+    if FileSize > MAX_FILE_SIZE then
+      raise Exception.Create(Format('Archivo demasiado grande: %d bytes. Máximo permitido: %d bytes', [FileSize, MAX_FILE_SIZE]));
+
+    if FileSize = 0 then
+      raise Exception.Create('El archivo está vacío');
+  finally
+    FileStream.Free;
+  end;
+
+  ShowMessage(Format('Procesando archivo: %s (%.2f KB)', [ExtractFileName(AFilePath), FileSize / 1024]));
+
+  FileStream := TFileStream.Create(AFilePath, fmOpenRead);
+  try
+    Base64Stream := TStringStream.Create;
+    try
+      TNetEncoding.Base64.Encode(FileStream, Base64Stream);
+      Result := Base64Stream.DataString;
+
+      // *** AGREGAR ESTAS LÍNEAS ***
+      Result := StringReplace(Result, #13#10, '', [rfReplaceAll]);
+      Result := StringReplace(Result, #13, '', [rfReplaceAll]);
+      Result := StringReplace(Result, #10, '', [rfReplaceAll]);
+      Result := StringReplace(Result, ' ', '', [rfReplaceAll]);
+      // *** FIN DE LÍNEAS A AGREGAR ***
+
+      ShowMessage(Format('Base64 generado y limpiado: %d caracteres', [Length(Result)]));
+    finally
+      Base64Stream.Free;
+    end;
+  finally
+    FileStream.Free;
+  end;
+end;
+
+function TEvolutionAPI.GetMediaTypeString(AMediaType: TMediaType): string;
+begin
+  case AMediaType of
+    mtImage: Result := 'image';
+    mtDocument: Result := 'document';
+    mtAudio: Result := 'audio';
+    mtVideo: Result := 'video';
+  else
+    Result := 'document';
+  end;
+end;
+
+function TEvolutionAPI.DetectMediaTypeFromFile(const AFilePath: string): TMediaType;
+var
+  FileExt: string;
+begin
+  FileExt := LowerCase(ExtractFileExt(AFilePath));
+  
+  // Tipos de imagen
+  if (FileExt = '.jpg') or (FileExt = '.jpeg') or (FileExt = '.png') or 
+     (FileExt = '.gif') or (FileExt = '.bmp') or (FileExt = '.webp') then
+    Result := mtImage
+  // Tipos de audio
+  else if (FileExt = '.mp3') or (FileExt = '.wav') or (FileExt = '.ogg') or 
+          (FileExt = '.m4a') or (FileExt = '.aac') then
+    Result := mtAudio
+  // Tipos de video
+  else if (FileExt = '.mp4') or (FileExt = '.avi') or (FileExt = '.mov') or 
+          (FileExt = '.wmv') or (FileExt = '.mkv') then
+    Result := mtVideo
+  // Todo lo demás como documento
+  else
+    Result := mtDocument;
+end;
+
+function TEvolutionAPI.MensajeBienvenida(const APacienteID: string; const ANombre: string): TEvolutionResponse;
+var
+  JSONData: TJSONObject;
+begin
+  JSONData := TJSONObject.Create;
+  try
+    JSONData.AddPair('pacienteId', APacienteID);
+    JSONData.AddPair('nombre', ANombre);
+    JSONData.AddPair('tipoMensaje', 'bienvenida');
+    
+    Result := SendRequest('/api/mensajes/bienvenida', JSONData.ToString);
+  finally
+    JSONData.Free;
+  end;
+end;
+
+function TEvolutionAPI.HistoriaRegistrada(const AHistoria: THistoriaRegistrada): TEvolutionResponse;
+var
+  JSONData: TJSONObject;
+begin
+  JSONData := TJSONObject.Create;
+  try
+    JSONData.AddPair('pacienteId', AHistoria.PacienteID);
+    JSONData.AddPair('nombre', AHistoria.Nombre);
+    JSONData.AddPair('apellido', AHistoria.Apellido);
+    JSONData.AddPair('fechaNacimiento', FormatEvolutionDateTime(AHistoria.FechaNacimiento));
+    JSONData.AddPair('historia', AHistoria.Historia);
+    JSONData.AddPair('fechaRegistro', FormatEvolutionDateTime(AHistoria.FechaRegistro));
+    
+    Result := SendRequest('/api/historias/registrar', JSONData.ToString);
+  finally
+    JSONData.Free;
+  end;
+end;
+
+function TEvolutionAPI.ResultadoExamen(const AResultado: TResultadoExamen; AGenerarPDF: Boolean): TEvolutionResponse;
+var
+  JSONData: TJSONObject;
+  PDFPath: string;
+begin
+  JSONData := TJSONObject.Create;
+  try
+    JSONData.AddPair('examenId', AResultado.ExamenID);
+    JSONData.AddPair('pacienteId', AResultado.PacienteID);
+    JSONData.AddPair('tipoExamen', AResultado.TipoExamen);
+    JSONData.AddPair('resultado', AResultado.Resultado);
+    JSONData.AddPair('fechaExamen', FormatEvolutionDateTime(AResultado.FechaExamen));
+    JSONData.AddPair('observaciones', AResultado.Observaciones);
+    
+    if AGenerarPDF then
+    begin
+      PDFPath := GeneratePDF(
+        Format('Tipo de Examen: %s'#13#10'Resultado: %s'#13#10'Observaciones: %s',
+               [AResultado.TipoExamen, AResultado.Resultado, AResultado.Observaciones]),
+        'Examen_' + AResultado.ExamenID
+      );
+      JSONData.AddPair('pdfPath', PDFPath);
+    end;
+    
+    Result := SendRequest('/api/examenes/resultado', JSONData.ToString);
+  finally
+    JSONData.Free;
+  end;
+end;
+
+function TEvolutionAPI.RecordatorioDeCita(const ARecordatorio: TRecordatorioCita): TEvolutionResponse;
+var
+  JSONData: TJSONObject;
+begin
+  JSONData := TJSONObject.Create;
+  try
+    JSONData.AddPair('citaId', ARecordatorio.CitaID);
+    JSONData.AddPair('pacienteId', ARecordatorio.PacienteID);
+    JSONData.AddPair('fechaCita', FormatEvolutionDateTime(ARecordatorio.FechaCita));
+    JSONData.AddPair('tipoCita', ARecordatorio.TipoCita);
+    JSONData.AddPair('medico', ARecordatorio.Medico);
+    JSONData.AddPair('observaciones', ARecordatorio.Observaciones);
+    
+    Result := SendRequest('/api/citas/recordatorio', JSONData.ToString);
+  finally
+    JSONData.Free;
+  end;
+end;
+
+function TEvolutionAPI.Recomendacion(const ARecomendacion: TRecomendacion): TEvolutionResponse;
+var
+  JSONData: TJSONObject;
+begin
+  JSONData := TJSONObject.Create;
+  try
+    JSONData.AddPair('recomendacionId', ARecomendacion.RecomendacionID);
+    JSONData.AddPair('pacienteId', ARecomendacion.PacienteID);
+    JSONData.AddPair('tipoRecomendacion', ARecomendacion.TipoRecomendacion);
+    JSONData.AddPair('descripcion', ARecomendacion.Descripcion);
+    JSONData.AddPair('fechaCreacion', FormatEvolutionDateTime(ARecomendacion.FechaCreacion));
+    JSONData.AddPair('prioridad', ARecomendacion.Prioridad);
+    
+    Result := SendRequest('/api/recomendaciones/crear', JSONData.ToString);
+  finally
+    JSONData.Free;
+  end;
+end;
+
+function TEvolutionAPI.TestConnection: TEvolutionResponse;
+begin
+  // Usar GetInstanceStatus como test de conexión
+  Result := GetInstanceStatus;
+end;
+
+function TEvolutionAPI.GetLastError: string;
+begin
+  // Implementar sistema de logging de errores si es necesario
+  Result := 'Ver logs para detalles del último error';
+end;
+
+// Funciones específicas de Evolution API
+
+function TEvolutionAPI.GetQRCode: TEvolutionResponse;
+begin
+  Result := SendRequest('/connect', '{}');
+end;
+
+function TEvolutionAPI.GetInstanceStatus: TEvolutionResponse;
+begin
+  Result := SendRequest('/connectionState', '{}');
+end;
+
+function TEvolutionAPI.SendMessage(const ANumber: string; const AMessage: string): TEvolutionResponse;
+var
+  JSONData: TJSONObject;
+  OptionsObj: TJSONObject;
+  TextMessage: TJSONObject;
+  JSONString: string;
+begin
+  JSONData := TJSONObject.Create;
+  try
+    // Crear objeto options (requerido por la API)
+    OptionsObj := TJSONObject.Create;
+    OptionsObj.AddPair('delay', TJSONNumber.Create(0));
+    OptionsObj.AddPair('presence', 'composing');
+    OptionsObj.AddPair('linkPreview', TJSONBool.Create(true));
+    
+    // Crear objeto textMessage
+    TextMessage := TJSONObject.Create;
+    TextMessage.AddPair('text', AMessage);
+    
+    // Crear JSON principal - Estructura corregida según error del servidor
+    JSONData.AddPair('number', ANumber);
+    JSONData.AddPair('text', AMessage);  // Agregar text directo según el error "instance requires property text"
+    JSONData.AddPair('options', OptionsObj);
+    JSONData.AddPair('textMessage', TextMessage);
+    
+    JSONString := JSONData.ToString;
+    
+    // JSON generado correctamente
+    
+    Result := SendRequest('/message/sendText', JSONString);
+  finally
+    JSONData.Free;
+  end;
+end;
+
+// Nueva función SendMessageV2 con estructura JSON completa según especificación
+function TEvolutionAPI.SendMessageV2(const ANumber: string; const AMessage: string; const AOptions: TTextMessageOptions): TEvolutionResponse;
+var
+  JSONData: TJSONObject;
+  OptionsObj: TJSONObject;
+  TextMessage: TJSONObject;
+  QuotedObj: TJSONObject;
+  QuotedKeyObj: TJSONObject;
+  QuotedMessageObj: TJSONObject;
+  MentionsObj: TJSONObject;
+  MentionedArray: TJSONArray;
+  i: Integer;
+begin
+  JSONData := TJSONObject.Create;
+  try
+    // Crear objeto options
+    OptionsObj := TJSONObject.Create;
+    if AOptions.Delay > 0 then
+      OptionsObj.AddPair('delay', TJSONNumber.Create(AOptions.Delay));
+    if AOptions.Presence <> '' then
+      OptionsObj.AddPair('presence', AOptions.Presence);
+    OptionsObj.AddPair('linkPreview', TJSONBool.Create(AOptions.LinkPreview));
+    
+    // Agregar quoted si se especifica
+    if AOptions.UseQuoted then
+    begin
+      QuotedObj := TJSONObject.Create;
+      
+      QuotedKeyObj := TJSONObject.Create;
+      QuotedKeyObj.AddPair('remoteJid', AOptions.Quoted.Key.RemoteJid);
+      QuotedKeyObj.AddPair('fromMe', TJSONBool.Create(AOptions.Quoted.Key.FromMe));
+      QuotedKeyObj.AddPair('id', AOptions.Quoted.Key.Id);
+      QuotedKeyObj.AddPair('participant', AOptions.Quoted.Key.Participant);
+      
+      QuotedMessageObj := TJSONObject.Create;
+      QuotedMessageObj.AddPair('conversation', AOptions.Quoted.Message.Conversation);
+      
+      QuotedObj.AddPair('key', QuotedKeyObj);
+      QuotedObj.AddPair('message', QuotedMessageObj);
+      
+      OptionsObj.AddPair('quoted', QuotedObj);
+    end;
+    
+    // Agregar mentions si se especifica
+    if AOptions.UseMentions then
+    begin
+      MentionsObj := TJSONObject.Create;
+      MentionsObj.AddPair('everyOne', TJSONBool.Create(AOptions.Mentions.EveryOne));
+      
+      if Length(AOptions.Mentions.Mentioned) > 0 then
+      begin
+        MentionedArray := TJSONArray.Create;
+        for i := 0 to High(AOptions.Mentions.Mentioned) do
+          MentionedArray.AddElement(TJSONString.Create(AOptions.Mentions.Mentioned[i]));
+        MentionsObj.AddPair('mentioned', MentionedArray);
+      end;
+      
+      OptionsObj.AddPair('mentions', MentionsObj);
+    end;
+    
+    // Crear objeto textMessage
+    TextMessage := TJSONObject.Create;
+    TextMessage.AddPair('text', AMessage);
+    
+    // Crear JSON principal
+    JSONData.AddPair('number', ANumber);
+    JSONData.AddPair('options', OptionsObj);
+    JSONData.AddPair('textMessage', TextMessage);
+    
+    Result := SendRequest('/message/sendText', JSONData.ToString);
+  finally
+    JSONData.Free;
+  end;
+end;
+
+// Sobrecarga simplificada de SendMessageV2
+function TEvolutionAPI.SendMessageV2(const ANumber: string; const AMessage: string; ADelay: Integer; const APresence: string; ALinkPreview: Boolean): TEvolutionResponse;
+var
+  Options: TTextMessageOptions;
+begin
+  // Preparar opciones básicas
+  Options.Delay := ADelay;
+  Options.Presence := APresence;
+  Options.LinkPreview := ALinkPreview;
+  Options.UseQuoted := False;
+  Options.UseMentions := False;
+  
+  Result := SendMessageV2(ANumber, AMessage, Options);
+end;
+
+// Función para enviar mensajes con menciones
+function TEvolutionAPI.SendMessageWithMentions(const ANumber: string; const AMessage: string; const AMentioned: TArray<string>; AMentionEveryone: Boolean): TEvolutionResponse;
+var
+  Options: TTextMessageOptions;
+begin
+  // Preparar opciones con menciones
+  Options.Delay := 0;
+  Options.Presence := 'composing';
+  Options.LinkPreview := true;
+  Options.UseQuoted := False;
+  Options.UseMentions := True;
+  
+  Options.Mentions.EveryOne := AMentionEveryone;
+  Options.Mentions.Mentioned := AMentioned;
+  
+  Result := SendMessageV2(ANumber, AMessage, Options);
+end;
+
+// Función para enviar mensajes citando otro mensaje
+function TEvolutionAPI.SendQuotedMessage(const ANumber: string; const AMessage: string; const AQuotedJid: string; const AQuotedId: string; const AQuotedText: string): TEvolutionResponse;
+var
+  Options: TTextMessageOptions;
+begin
+  // Preparar opciones con mensaje citado
+  Options.Delay := 0;
+  Options.Presence := 'composing';
+  Options.LinkPreview := true;
+  Options.UseQuoted := True;
+  Options.UseMentions := False;
+  
+  Options.Quoted.Key.RemoteJid := AQuotedJid;
+  Options.Quoted.Key.FromMe := false;
+  Options.Quoted.Key.Id := AQuotedId;
+  Options.Quoted.Key.Participant := '';
+  Options.Quoted.Message.Conversation := AQuotedText;
+  
+  Result := SendMessageV2(ANumber, AMessage, Options);
+end;
+
+function TEvolutionAPI.SendMediaMessage(const ANumber: string; const AMediaPath: string; const ACaption: string): TEvolutionResponse;
+var
+  JSONData: TJSONObject;
+  MediaObj: TJSONObject;
+begin
+  JSONData := TJSONObject.Create;
+  try
+    MediaObj := TJSONObject.Create;
+    MediaObj.AddPair('mediatype', 'image');
+    MediaObj.AddPair('media', AMediaPath);
+    if ACaption <> '' then
+      MediaObj.AddPair('caption', ACaption);
+    
+    JSONData.AddPair('number', ANumber);
+    JSONData.AddPair('mediaMessage', MediaObj);
+    
+    Result := SendRequest('/message/sendMedia', JSONData.ToString);
+  finally
+    JSONData.Free;
+  end;
+end;
+
+// Nueva función SendMediaMessageV2 con estructura JSON correcta según especificación
+function TEvolutionAPI.SendMediaMessageV2(const ANumber: string; const AMediaMessage: TMediaMessage; const AOptions: TMessageOptions): TEvolutionResponse;
+var
+  JSONData: TJSONObject;
+  MediaObj: TJSONObject;
+  OptionsObj: TJSONObject;
+  Base64Data: string;
+begin
+  JSONData := TJSONObject.Create;
+  try
+    // Preparar datos Base64
+    if AMediaMessage.Base64Data <> '' then
+    begin
+      Base64Data := AMediaMessage.Base64Data;
+ //     ShowMessage('Usando Base64 proporcionado directamente');
+    end
+    else if AMediaMessage.FilePath <> '' then
+    begin
+   //   ShowMessage('Iniciando conversión a Base64...');
+      Base64Data := FileToBase64(AMediaMessage.FilePath);
+   //   ShowMessage('Conversión a Base64 completada');
+    end
+    else
+      raise Exception.Create('Debe proporcionar FilePath o Base64Data');
+    
+    // Crear objeto options
+    OptionsObj := TJSONObject.Create;
+    if AOptions.Delay > 0 then
+      OptionsObj.AddPair('delay', TJSONNumber.Create(AOptions.Delay));
+    if AOptions.Presence <> '' then
+      OptionsObj.AddPair('presence', AOptions.Presence);
+    
+    // Crear objeto mediaMessage
+    MediaObj := TJSONObject.Create;
+    MediaObj.AddPair('mediatype', GetMediaTypeString(AMediaMessage.MediaType));  // Corregido: todo en minúsculas
+    MediaObj.AddPair('fileName', AMediaMessage.FileName);
+    if AMediaMessage.Caption <> '' then
+      MediaObj.AddPair('caption', AMediaMessage.Caption);
+    MediaObj.AddPair('media', Base64Data);
+    
+    // Crear JSON principal
+    JSONData.AddPair('number', ANumber);
+    JSONData.AddPair('options', OptionsObj);
+    JSONData.AddPair('mediaMessage', MediaObj);
+    
+    // Debug temporal: mostrar JSON generado para medios (primeros 500 caracteres)
+ //   ShowMessage('JSON generado para SendMediaMessageV2:' + #13#10 + Copy(JSONData.ToString, 1, 500) + '...');
+    
+    Result := SendRequest('/message/sendMedia', JSONData.ToString);
+  finally
+    JSONData.Free;
+  end;
+end;
+
+// Sobrecarga simplificada de SendMediaMessageV2
+function TEvolutionAPI.SendMediaMessageV2(const ANumber: string; const AFilePath: string; const ACaption: string; ADelay: Integer; const APresence: string): TEvolutionResponse;
+var
+  MediaMessage: TMediaMessage;
+  Options: TMessageOptions;
+begin
+  // Preparar estructura TMediaMessage
+  MediaMessage.MediaType := DetectMediaTypeFromFile(AFilePath);
+  MediaMessage.FileName := ExtractFileName(AFilePath);
+  MediaMessage.Caption := ACaption;
+  MediaMessage.FilePath := AFilePath;
+  MediaMessage.Base64Data := '';
+  
+  // Preparar opciones
+  Options.Delay := ADelay;
+  Options.Presence := APresence;
+  
+  Result := SendMediaMessageV2(ANumber, MediaMessage, Options);
+end;
+
+// Función específica para envío de PDFs
+function TEvolutionAPI.SendPDFMessage(const ANumber: string; const APDFPath: string; const ACaption: string; ADelay: Integer): TEvolutionResponse;
+var
+  MediaMessage: TMediaMessage;
+  Options: TMessageOptions;
+begin
+  // Verificar que sea un archivo PDF
+  if LowerCase(ExtractFileExt(APDFPath)) <> '.pdf' then
+    raise Exception.Create('El archivo debe ser un PDF');
+  
+  // Preparar estructura TMediaMessage
+  MediaMessage.MediaType := mtDocument;
+  MediaMessage.FileName := ExtractFileName(APDFPath);
+  MediaMessage.Caption := ACaption;
+  MediaMessage.FilePath := APDFPath;
+  MediaMessage.Base64Data := '';
+  
+  // Preparar opciones
+  Options.Delay := ADelay;
+  Options.Presence := 'composing';
+  
+  Result := SendMediaMessageV2(ANumber, MediaMessage, Options);
+end;
+
+// Función específica para envío de imágenes
+function TEvolutionAPI.SendImageMessage(const ANumber: string; const AImagePath: string; const ACaption: string; ADelay: Integer): TEvolutionResponse;
+var
+  MediaMessage: TMediaMessage;
+  Options: TMessageOptions;
+  FileExt: string;
+begin
+  // Verificar que sea un archivo de imagen
+  FileExt := LowerCase(ExtractFileExt(AImagePath));
+  if not ((FileExt = '.jpg') or (FileExt = '.jpeg') or (FileExt = '.png') or 
+          (FileExt = '.gif') or (FileExt = '.bmp') or (FileExt = '.webp')) then
+    raise Exception.Create('El archivo debe ser una imagen válida (jpg, png, gif, bmp, webp)');
+  
+  // Preparar estructura TMediaMessage
+  MediaMessage.MediaType := mtImage;
+  MediaMessage.FileName := ExtractFileName(AImagePath);
+  MediaMessage.Caption := ACaption;
+  MediaMessage.FilePath := AImagePath;
+  MediaMessage.Base64Data := '';
+  
+  // Preparar opciones
+  Options.Delay := ADelay;
+  Options.Presence := 'composing';
+  
+  Result := SendMediaMessageV2(ANumber, MediaMessage, Options);
+end;
+
+// Función simple para envío de medios con JSON mínimo
+// Reemplaza la función SendMediaSimple con esta versión CORRECTA:
+
+function TEvolutionAPI.SendMediaSimple(const ANumber: string; const AFilePath: string; const ACaption: string): TEvolutionResponse;
+var
+  JSONData: TJSONObject;
+  Base64Data: string;
+  MediaType: string;
+  MimeType: string;
+  FileExt: string;
+  CleanNumber: string;
+begin
+  JSONData := TJSONObject.Create;
+  try
+    // Limpiar número (quitar @s.whatsapp.net si existe)
+    CleanNumber := ANumber;
+    if Pos('@s.whatsapp.net', CleanNumber) > 0 then
+      CleanNumber := StringReplace(CleanNumber, '@s.whatsapp.net', '', [rfReplaceAll]);
+
+    // Detectar tipo de media y mimetype
+    FileExt := LowerCase(ExtractFileExt(AFilePath));
+    if (FileExt = '.jpg') or (FileExt = '.jpeg') then
+    begin
+      MediaType := 'image';
+      MimeType := 'image/jpeg';
+    end
+    else if FileExt = '.png' then
+    begin
+      MediaType := 'image';
+      MimeType := 'image/png';
+    end
+    else if FileExt = '.pdf' then
+    begin
+      MediaType := 'document';
+      MimeType := 'application/pdf';
+    end
+    else if (FileExt = '.mp4') or (FileExt = '.avi') or (FileExt = '.mov') then
+    begin
+      MediaType := 'video';
+      MimeType := 'video/mp4';
+    end
+    else if (FileExt = '.mp3') or (FileExt = '.ogg') or (FileExt = '.wav') then
+    begin
+      MediaType := 'audio';
+      MimeType := 'audio/mpeg';
+    end
+    else
+    begin
+      MediaType := 'document';
+      MimeType := 'application/octet-stream';
+    end;
+
+    // Convertir archivo a Base64
+    ShowMessage('Iniciando conversión a Base64...');
+    Base64Data := FileToBase64(AFilePath);
+    ShowMessage('Conversión completada. Tamaño: ' + IntToStr(Length(Base64Data)) + ' caracteres');
+
+    // ESTRUCTURA V2: Todos los campos en el nivel superior, sin objetos anidados
+    JSONData.AddPair('number', CleanNumber);
+    JSONData.AddPair('mediatype', MediaType);
+    JSONData.AddPair('mimetype', MimeType);
+    JSONData.AddPair('media', Base64Data);  // Solo Base64 puro
+    JSONData.AddPair('fileName', ExtractFileName(AFilePath));
+
+    if ACaption <> '' then
+      JSONData.AddPair('caption', ACaption);
+
+    // Opcionales
+    JSONData.AddPair('delay', TJSONNumber.Create(1200));
+
+    // Debug
+    ShowMessage('JSON generado (estructura V2):' + #13#10 +
+                StringReplace(JSONData.ToString, Base64Data,
+                             '...BASE64_TRUNCADO (' + IntToStr(Length(Base64Data)) + ' chars)...',
+                             [rfReplaceAll]));
+
+    Result := SendRequest('/message/sendMedia', JSONData.ToString);
+  finally
+    JSONData.Free;
+  end;
+end;
+
+// Actualizar GenerateMediaJSON para V2
+function TEvolutionAPI.GenerateMediaJSON(const ANumber: string; const AFilePath: string; const ACaption: string): string;
+var
+  JSONData: TJSONObject;
+  Base64Data: string;
+  MediaType: string;
+  MimeType: string;
+  FileExt: string;
+  CleanNumber: string;
+begin
+  JSONData := TJSONObject.Create;
+  try
+    // Limpiar número
+    CleanNumber := ANumber;
+    if Pos('@s.whatsapp.net', CleanNumber) > 0 then
+      CleanNumber := StringReplace(CleanNumber, '@s.whatsapp.net', '', [rfReplaceAll]);
+
+    // Detectar tipo de media
+    FileExt := LowerCase(ExtractFileExt(AFilePath));
+    if (FileExt = '.jpg') or (FileExt = '.jpeg') then
+    begin
+      MediaType := 'image';
+      MimeType := 'image/jpeg';
+    end
+    else if FileExt = '.png' then
+    begin
+      MediaType := 'image';
+      MimeType := 'image/png';
+    end
+    else if FileExt = '.pdf' then
+    begin
+      MediaType := 'document';
+      MimeType := 'application/pdf';
+    end
+    else
+    begin
+      MediaType := 'document';
+      MimeType := 'application/octet-stream';
+    end;
+
+    // Convertir archivo a Base64 (truncado para visualización)
+    Base64Data := Copy(FileToBase64(AFilePath), 1, 100);
+
+    // Estructura V2: plana, sin objetos anidados
+    JSONData.AddPair('number', CleanNumber);
+    JSONData.AddPair('mediatype', MediaType);
+    JSONData.AddPair('mimetype', MimeType);
+    JSONData.AddPair('media', Base64Data + '...TRUNCADO');
+    JSONData.AddPair('fileName', ExtractFileName(AFilePath));
+
+    if ACaption <> '' then
+      JSONData.AddPair('caption', ACaption);
+
+    JSONData.AddPair('delay', TJSONNumber.Create(1200));
+
+    Result := JSONData.ToString;
+  finally
+    JSONData.Free;
+  end;
+end;
+function TEvolutionAPI.LogoutInstance: TEvolutionResponse;
+begin
+  Result := SendRequest('/logout', '{}');
+end;
+
+function TEvolutionAPI.RestartInstance: TEvolutionResponse;
+begin
+  Result := SendRequest('/restart', '{}');
+end;
+
+// Funciones globales
+
+function CreateEvolutionAPI(const ABaseURL: string; const AInstanceID: string; const AAPIKey: string): TEvolutionAPI;
+begin
+  if GlobalEvolutionAPI = nil then
+  begin
+    if ABaseURL <> '' then
+      GlobalEvolutionAPI := TEvolutionAPI.Create(ABaseURL, AInstanceID, AAPIKey)
+    else
+      GlobalEvolutionAPI := TEvolutionAPI.Create('https://evolution.ek2.online', 'academia', AAPIKey);
+  end;
+  Result := GlobalEvolutionAPI;
+end;
+
+function FormatEvolutionDateTime(const ADateTime: TDateTime): string;
+begin
+  Result := System.SysUtils.FormatDateTime('yyyy-mm-dd hh:nn:ss', ADateTime);
+end;
+
+initialization
+
+finalization
+  if Assigned(GlobalEvolutionAPI) then
+    GlobalEvolutionAPI.Free;
+
+end.

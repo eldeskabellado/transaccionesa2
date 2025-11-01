@@ -19,6 +19,7 @@ type
     procedure Button1Click(Sender: TObject);
     procedure DBGrid1DblClick(Sender: TObject);
     procedure FormShow(Sender: TObject);
+    procedure BuscarOperaciones(const Tipos: string; Fecha: TDate);
   private
     { Private declarations }
   public
@@ -38,15 +39,23 @@ implementation
 
 uses UnitDatos, UnitVerificar;
 
+procedure TFormVerFactura.BuscarOperaciones(const Tipos: string; Fecha: TDate);
+begin
+  sqfacturas.Close;
+  sqfacturas.SQL.Clear;
+  sqfacturas.SQL.Text := 'SELECT * FROM SOPERACIONINV ' +
+                         'WHERE FTI_TIPO IN (' + Tipos + ') ' +
+                         'AND FTI_FECHAEMISION = :Tfecha ' +
+                         'ORDER BY FTI_FECHAEMISION ASC';
+  sqfacturas.ParamByName('Tfecha').AsDate := Fecha;
+  sqfacturas.Open;
+end;
+
 procedure TFormVerFactura.Button1Click(Sender: TObject);
 begin
-  with sqfacturas do
-  begin
-    close;
-    PARAMBYNAME('Tfecha').AsDate:=DateFecha.DateTime;
-    Parambyname('Ttipo').AsInteger:=11;
-    Open;
-  end;
+  BuscarOperaciones('11', DateFecha.Date);
+
+
 end;
 
 procedure TFormVerFactura.DBGrid1DblClick(Sender: TObject);
@@ -73,7 +82,9 @@ FormVerificar:= TFormVerificar.Create(Application);
           mmo1.Text:=sqfacturas.FieldByName('FTI_DIRECCIONDESPACHO').AsString;
           vendedor:=sqfacturas.FieldByName('FTI_VENDEDORASIGNADO').AsString;
           nro_scim:= sqscim.FieldByName('FCA_CEDULA').AsString;
+          celular:=sqfacturas.FieldByName('FTI_TELEFONOCONTACTO').AsString;
           accion:=docProceso;
+          operacion:= sqfacturas.FieldByName('FTI_AUTOINCREMENT').AsInteger;
           ShowModal;
           end;
 

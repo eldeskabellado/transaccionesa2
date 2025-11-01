@@ -422,7 +422,6 @@ object Form2: TForm2
         FDFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
         FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF}
       Layout = blGlyphTop
-      Visible = False
       OnClick = btn1Click
       ExplicitLeft = -5
       ExplicitTop = 0
@@ -1076,6 +1075,7 @@ object Form2: TForm2
         FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
         FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF}
       Layout = blGlyphTop
+      Visible = False
       OnClick = btn4Click
       ExplicitLeft = 251
       ExplicitTop = 2
@@ -4608,12 +4608,29 @@ object Form2: TForm2
         Visible = False
         OnClick = menEiminarClick
       end
+      object menBancos1: TMenuItem
+        Caption = 'Bancos'
+        object menOrdendePago1: TMenuItem
+          Caption = 'Orden de Pago'
+          OnClick = menOrdendePago1Click
+        end
+      end
+    end
+    object TMenuItem
     end
     object menReportes1: TMenuItem
       Caption = 'Reportes'
+      Visible = False
       object menExportarReportes1: TMenuItem
         Caption = 'Exportar Reportes'
         OnClick = menExportarReportes1Click
+      end
+    end
+    object menSistema1: TMenuItem
+      Caption = 'Sistema'
+      object menConectar1: TMenuItem
+        Caption = 'Acerca de'
+        OnClick = menConectar1Click
       end
     end
   end

@@ -8,6 +8,25 @@ uses
   Data.DB, dbisamtb, ComObj, Winapi.ActiveX;
 
 type
+  // Thread para Reporte de Inventario Inicio de Operaciones
+  TReporteInventarioInicioThread = class(TThread)
+  private
+    FQuery: TDBISAMQuery;
+    FMensaje: string;
+    FError: Boolean;
+    FMaxRetries: Integer;
+    FRetryDelay: Integer;
+    procedure ExportarInventarioInicioExcel;
+    procedure MostrarMensaje;
+    procedure WriteLog(const Msg: string);
+    function TryCreateExcel(out ExcelApp: Variant): Boolean;
+    procedure SafeCloseExcel(var ExcelApp, WorkBook: Variant);
+  protected
+    procedure Execute; override;
+  public
+    constructor Create;
+  end;
+
   // Thread para Reporte de Ventas
   TReporteVentasThread = class(TThread)
   private
@@ -98,6 +117,7 @@ type
     procedure EjecutarReporteInventario;
     procedure EjecutarProductosVendidos;
     procedure EjecutarReportesdelDia;
+    procedure EjecutarReporteInventarioInicio;
   public
     { Public declarations }
   end;
@@ -111,6 +131,391 @@ uses
   UnitDatos, UnitVariablesGlobales, unitVariables;
 
 {$R *.dfm}
+
+{ TReporteInventarioInicioThread }
+
+// Constructor del Thread para Reporte de Inventario Inicio
+constructor TReporteInventarioInicioThread.Create;
+begin
+  inherited Create(False);
+  WriteLog('=== INICIO: Constructor TReporteInventarioInicioThread ===');
+
+  // Tomar parámetros desde el formulario actual
+  if Assigned(formExport) then
+  begin
+    WriteLog('formExport está asignado');
+    FQuery := formExport.sqProductosVendidos;
+    if not Assigned(FQuery) then
+    begin
+      WriteLog('ERROR: El componente sqProductosVendidos NO está asignado');
+      raise Exception.Create('El componente sqProductosVendidos no está asignado');
+    end;
+    WriteLog('sqProductosVendidos está asignado correctamente');
+  end
+  else
+  begin
+    WriteLog('ERROR: El formulario formExport NO está asignado');
+    raise Exception.Create('El formulario formExport no está asignado');
+  end;
+
+  FMaxRetries := 3;
+  FRetryDelay := 2000; // 2 segundos
+  FreeOnTerminate := True;
+  WriteLog('Constructor completado exitosamente');
+end;
+
+// Implementación del Thread para Reporte de Inventario Inicio
+procedure TReporteInventarioInicioThread.Execute;
+begin
+  WriteLog('=== INICIO: Execute (Inventario Inicio) ===');
+  try
+    try
+      WriteLog('Llamando a ExportarInventarioInicioExcel...');
+      ExportarInventarioInicioExcel;
+      WriteLog('ExportarInventarioInicioExcel completado exitosamente');
+      FMensaje := 'Reporte de Inventario Inicio exportado correctamente a Excel';
+      FError := False;
+    except
+      on E: Exception do
+      begin
+        WriteLog('ERROR en Execute: ' + E.Message + ' - Clase: ' + E.ClassName);
+        FMensaje := 'Error al exportar inventario inicio: ' + E.Message;
+        FError := True;
+      end;
+    end;
+  finally
+    WriteLog('Llamando a Synchronize(MostrarMensaje)...');
+    Synchronize(MostrarMensaje);
+    WriteLog('=== FIN: Execute (Inventario Inicio) ===');
+  end;
+end;
+
+procedure TReporteInventarioInicioThread.MostrarMensaje;
+begin
+  ShowMessage(FMensaje);
+end;
+
+// Método para escribir en el log
+procedure TReporteInventarioInicioThread.WriteLog(const Msg: string);
+var
+  LogFile: TextFile;
+  LogPath, LogFileName: string;
+begin
+  try
+    LogPath := ExtractFilePath(Application.ExeName) + 'EXPORTADO\';
+    if not DirectoryExists(LogPath) then
+      ForceDirectories(LogPath);
+
+    LogFileName := LogPath + 'LOG_INVENTARIO_INICIO_' + FormatDateTime('yyyymmdd', Now) + '.txt';
+
+    AssignFile(LogFile, LogFileName);
+    if FileExists(LogFileName) then
+      Append(LogFile)
+    else
+      Rewrite(LogFile);
+
+    WriteLn(LogFile, FormatDateTime('yyyy-mm-dd hh:nn:ss', Now) + ' - ' + Msg);
+    CloseFile(LogFile);
+  except
+    // Si falla el log, no interrumpir el proceso
+  end;
+end;
+
+// Función auxiliar para crear Excel con reintentos
+function TReporteInventarioInicioThread.TryCreateExcel(out ExcelApp: Variant): Boolean;
+var
+  Attempt: Integer;
+begin
+  Result := False;
+  ExcelApp := Unassigned;
+  WriteLog('=== INICIO: TryCreateExcel ===');
+
+  for Attempt := 1 to FMaxRetries do
+  begin
+    try
+      WriteLog('Intento ' + IntToStr(Attempt) + ' de ' + IntToStr(FMaxRetries) + ' para crear Excel');
+      ExcelApp := CreateOleObject('Excel.Application');
+      ExcelApp.Visible := False;
+      ExcelApp.DisplayAlerts := False;
+      WriteLog('Excel creado exitosamente en intento ' + IntToStr(Attempt));
+      Result := True;
+      Break;
+    except
+      on E: Exception do
+      begin
+        WriteLog('ERROR en intento ' + IntToStr(Attempt) + ': ' + E.Message);
+        if Attempt < FMaxRetries then
+        begin
+          WriteLog('Esperando ' + IntToStr(FRetryDelay) + 'ms antes del siguiente intento...');
+          Sleep(FRetryDelay);
+          Continue;
+        end
+        else
+        begin
+          WriteLog('FALLO FINAL: No se pudo crear Excel después de ' + IntToStr(FMaxRetries) + ' intentos');
+          raise Exception.Create('No se pudo crear Excel después de ' + IntToStr(FMaxRetries) + ' intentos: ' + E.Message);
+        end;
+      end;
+    end;
+  end;
+  WriteLog('=== FIN: TryCreateExcel - Result: ' + BoolToStr(Result, True) + ' ===');
+end;
+
+// Función auxiliar para cerrar Excel de forma segura
+procedure TReporteInventarioInicioThread.SafeCloseExcel(var ExcelApp, WorkBook: Variant);
+begin
+  WriteLog('=== INICIO: SafeCloseExcel ===');
+  try
+    if not VarIsEmpty(WorkBook) and not VarIsNull(WorkBook) then
+    begin
+      try
+        WriteLog('Cerrando WorkBook...');
+        WorkBook.Close(False);
+        WriteLog('WorkBook cerrado');
+      except
+        on E: Exception do
+          WriteLog('Error al cerrar WorkBook (ignorado): ' + E.Message);
+      end;
+      WorkBook := Unassigned;
+    end;
+  except
+    on E: Exception do
+      WriteLog('Error general al cerrar WorkBook (ignorado): ' + E.Message);
+  end;
+
+  try
+    if not VarIsEmpty(ExcelApp) and not VarIsNull(ExcelApp) then
+    begin
+      try
+        WriteLog('Cerrando ExcelApp...');
+        ExcelApp.DisplayAlerts := True;
+        ExcelApp.Quit;
+        WriteLog('ExcelApp cerrado');
+      except
+        on E: Exception do
+          WriteLog('Error al cerrar ExcelApp (ignorado): ' + E.Message);
+      end;
+      ExcelApp := Unassigned;
+    end;
+  except
+    on E: Exception do
+      WriteLog('Error general al cerrar ExcelApp (ignorado): ' + E.Message);
+  end;
+  WriteLog('=== FIN: SafeCloseExcel ===');
+end;
+
+// Función para exportar inventario inicio a Excel
+procedure TReporteInventarioInicioThread.ExportarInventarioInicioExcel;
+var
+  ExcelApp, WorkBook, WorkSheet: Variant;
+  SQL: string;
+  FileName: string;
+  RecordCount: Integer;
+  DataArray: Variant;
+  i: Integer;
+begin
+  WriteLog('=== INICIO: ExportarInventarioInicioExcel ===');
+
+  // Inicializar COM para este thread con apartamento STA
+  WriteLog('Inicializando COM con apartamento STA...');
+  CoInitializeEx(nil, COINIT_APARTMENTTHREADED);
+  WriteLog('COM inicializado');
+
+  try
+    // Crear aplicación Excel con reintentos
+    WriteLog('Creando aplicación Excel con reintentos...');
+    if not TryCreateExcel(ExcelApp) then
+      raise Exception.Create('No se pudo inicializar Excel');
+    WriteLog('Excel creado exitosamente');
+
+    try
+      // Deshabilitar actualizaciones de pantalla para mejor rendimiento
+      WriteLog('Deshabilitando actualizaciones de pantalla...');
+      ExcelApp.ScreenUpdating := False;
+      WriteLog('ScreenUpdating deshabilitado');
+
+      // Crear nuevo libro
+      WriteLog('Creando nuevo libro de Excel...');
+      WorkBook := ExcelApp.Workbooks.Add;
+      WorkSheet := WorkBook.Worksheets[1];
+      WriteLog('Libro y hoja creados');
+
+      // Configurar encabezados en mayúsculas
+      WriteLog('Configurando encabezados...');
+      WorkSheet.Cells[1, 1] := 'CODIGO';
+      WorkSheet.Cells[1, 2] := 'DESCRIPCION';
+      WorkSheet.Cells[1, 3] := 'CANTIDAD';
+      WorkSheet.Cells[1, 4] := 'COSTO';
+      WorkSheet.Cells[1, 5] := 'DEPOSITO';
+
+      // Formatear encabezados
+      WorkSheet.Range['A1:E1'].Font.Bold := True;
+      WorkSheet.Range['A1:E1'].Interior.Color := RGB(200, 200, 200);
+
+      // Formatear columna CODIGO como texto
+      WorkSheet.Columns['A:A'].NumberFormat := '@';
+      WriteLog('Encabezados configurados');
+
+      // Construir consulta SQL
+      SQL := 'SELECT S1.FDI_CODIGO, ' +
+             'S2.FI_DESCRIPCION AS NOMBRE_PRODUCTO, ' +
+             'S3.FIC_COSTOACTEXTRANJERO AS COSTO, ' +
+             'S1.FDI_TIPOOPERACION, ' +
+             'S2.FI_CATEGORIA, ' +
+             'S1.FDI_FECHAOPERACION, ' +
+             'S1.FDI_CANTIDAD, ' +
+             'S1.FDI_MONEDA, ' +
+             'S1.FDI_FACTORCAMBIO, ' +
+             'S1.FDI_PRECIODEVENTA, ' +
+             'S1.FDI_COSTODEVENTAS, ' +
+             'S1.FDI_DOCUMENTO ' +
+             'FROM SdetalleInv S1 ' +
+             'INNER JOIN Sinventario S2 ON S1.FDI_CODIGO = S2.FI_CODIGO ' +
+             'INNER JOIN a2InvCostosPrecios S3 ON S1.FDI_CODIGO = S3.FIC_CODEITEM ' +
+             'WHERE S1.FDI_VISIBLE = 1 ' +
+             'AND S1.FDI_TIPOOPERACION = 4 ' +
+             'AND S1.FDI_DOCUMENTO IN (''00000003'', ''00000004'') ' +
+             'ORDER BY S1.FDI_FECHAOPERACION DESC, S1.FDI_DOCUMENTO DESC';
+      WriteLog('SQL construido: ' + SQL);
+
+      // Ejecutar consulta
+      WriteLog('Verificando FQuery...');
+      if not Assigned(FQuery) then
+        raise Exception.Create('No se encontró componente de consulta');
+
+      WriteLog('Cerrando query anterior si existe...');
+      FQuery.Close;
+      WriteLog('Asignando SQL al query...');
+      FQuery.SQL.Text := SQL;
+      WriteLog('Configurando propiedades para consultas...');
+
+      // Configurar propiedades para consultas en DBISAM
+      if FQuery is TDBISAMQuery then
+      begin
+        with TDBISAMQuery(FQuery) do
+        begin
+          WriteLog('Configurando RequestLive := False para mejor rendimiento...');
+          RequestLive := False;  // Solo lectura, más rápido
+        end;
+      end;
+
+      WriteLog('Abriendo query...');
+      FQuery.Open;
+      WriteLog('Query abierto exitosamente');
+
+      WriteLog('Verificando si hay registros...');
+      if FQuery.Eof then
+      begin
+        WriteLog('WARNING: Query no retornó registros');
+        FQuery.Close;
+        raise Exception.Create('No se encontraron registros de inventario inicio para exportar');
+      end;
+
+      // Contar registros para dimensionar el array
+      WriteLog('Contando registros...');
+      FQuery.Last;
+      RecordCount := FQuery.RecordCount;
+      FQuery.First;
+      WriteLog('Total de registros a exportar: ' + IntToStr(RecordCount));
+
+      if RecordCount = 0 then
+        raise Exception.Create('No se encontraron registros de inventario inicio para exportar');
+
+      // Crear array de variantes [filas, columnas]
+      WriteLog('Creando array de datos...');
+      DataArray := VarArrayCreate([1, RecordCount, 1, 5], varVariant);
+
+      // Llenar array con datos del query
+      WriteLog('Llenando array con datos...');
+      i := 1;
+      while not FQuery.Eof do
+      begin
+        // Llenar array (mucho más rápido que escribir celda por celda)
+        DataArray[i, 1] := '''' + UpperCase(FQuery.FieldByName('FDI_CODIGO').AsString);
+        DataArray[i, 2] := UpperCase(FQuery.FieldByName('NOMBRE_PRODUCTO').AsString);
+        DataArray[i, 3] := FQuery.FieldByName('FDI_CANTIDAD').AsFloat;
+        DataArray[i, 4] := FQuery.FieldByName('COSTO').AsFloat;
+        DataArray[i, 5] := '1';  // DEPOSITO fijo
+
+        // Log cada 1000 registros para monitorear progreso
+        if (i mod 1000) = 0 then
+          WriteLog('Procesados ' + IntToStr(i) + ' registros en array...');
+
+        Inc(i);
+        FQuery.Next;
+      end;
+
+      FQuery.Close;
+      WriteLog('Query cerrado');
+      WriteLog('Array llenado con ' + IntToStr(RecordCount) + ' registros');
+
+      // Escribir todo el array de una sola vez a Excel
+      WriteLog('Escribiendo array completo a Excel...');
+      WorkSheet.Range[WorkSheet.Cells[2, 1], WorkSheet.Cells[RecordCount + 1, 5]].Value := DataArray;
+      WriteLog('Datos escritos exitosamente en Excel');
+
+      // Reactivar actualizaciones antes de autoajustar
+      WriteLog('Reactivando actualizaciones de pantalla...');
+      ExcelApp.ScreenUpdating := True;
+      WriteLog('ScreenUpdating reactivado');
+
+      // Autoajustar columnas
+      WriteLog('Autoajustando columnas...');
+      WorkSheet.Columns.AutoFit;
+      WriteLog('Columnas autoajustadas');
+
+      // Crear carpeta EXPORTADO si no existe
+      WriteLog('Verificando carpeta EXPORTADO...');
+      var ExportPath := ExtractFilePath(Application.ExeName) + 'EXPORTADO\';
+      if not DirectoryExists(ExportPath) then
+      begin
+        WriteLog('Creando carpeta EXPORTADO...');
+        ForceDirectories(ExportPath);
+        if not DirectoryExists(ExportPath) then
+          raise Exception.Create('No se pudo crear la carpeta: ' + ExportPath);
+      end;
+      WriteLog('Carpeta EXPORTADO verificada: ' + ExportPath);
+
+      // Guardar archivo en carpeta EXPORTADO
+      FileName := ExportPath + PREFIJO + empresa + 'REPORTE_INVENTARIO_INICIO_' +
+                  FormatDateTime('yyyymmdd_hhnnss', Now) + '.xlsx';
+      WriteLog('Nombre de archivo: ' + FileName);
+
+      try
+        WriteLog('Guardando archivo Excel...');
+        WorkBook.SaveAs(FileName);
+        WriteLog('Archivo guardado en Excel');
+
+        // Verificar que el archivo se creó
+        WriteLog('Verificando que el archivo existe...');
+        if not FileExists(FileName) then
+          raise Exception.Create('El archivo no se guardó correctamente: ' + FileName);
+
+        WriteLog('Archivo verificado exitosamente');
+
+      except
+        on E: Exception do
+        begin
+          WriteLog('ERROR al guardar: ' + E.Message);
+          raise Exception.Create('Error al guardar archivo Excel: ' + E.Message);
+        end;
+      end;
+
+      FMensaje := 'Archivo guardado en: ' + FileName + ' (' + IntToStr(RecordCount) + ' registros)';
+      WriteLog('FMensaje asignado: ' + FMensaje);
+
+    finally
+      // Cerrar Excel de forma segura
+      SafeCloseExcel(ExcelApp, WorkBook);
+    end;
+
+  finally
+    // Finalizar COM
+    CoUninitialize;
+  end;
+end;
+
+{ TReporteVentasThread }
 
 // Constructor del Thread para Reporte de Ventas
 constructor TReporteVentasThread.Create(AFechaInicio, AFechaFin: TDateTime; AQuery: TDBISAMQuery);
@@ -257,7 +662,6 @@ begin
     WorkSheet.Cells[1, 13] := 'EMPRESA';
     WorkSheet.Cells[1, 14] := 'TIPO DOCUMENTO';
 
-
     // Formatear encabezados
     WorkSheet.Range['A1:N1'].Font.Bold := True;
     WorkSheet.Range['A1:N1'].Interior.Color := RGB(200, 200, 200);
@@ -267,31 +671,33 @@ begin
     WorkSheet.Columns['B:B'].NumberFormat := '@';  // Columna GRUPO_ID como texto
 
     // Construir consulta SQL con filtros de fecha y tipos de documento
-    SQL := 'SELECT S1.FDI_CODIGO, ' +
-           'S2.FI_CATEGORIA, ' +
-           'S1.FDI_FECHAOPERACION, ' +
-           'S1.FDI_CANTIDAD, ' +
-           'S1.FDI_MONEDA, ' +
-           'S1.FDI_FACTORCAMBIO, ' +
-           'S1.FDI_PRECIODEVENTA, ' +
-           'S1.FDI_COSTODEVENTAS, ' +
-           'S1.FDI_DOCUMENTO, ' +
-           'S3.FTI_PERSONACONTACTO, ' +
-           'S4.FC_EMAIL, ' +
-           'S3.FTI_TELEFONOCONTACTO, ' +
-           'S1.FDI_TIPOOPERACION ' +
-           'FROM SDetalleVenta S1 ' +
-           'INNER JOIN Sinventario S2 ON S1.FDI_CODIGO = S2.FI_CODIGO ' +
-           'INNER JOIN SOperacionInv S3 ON S1.FDI_DOCUMENTO = S3.FTI_DOCUMENTO ' +
-           'INNER JOIN Sclientes S4 ON S1.FDI_CLIENTEPROVEEDOR = S4.FC_CODIGO ' +
-           'WHERE S1.FDI_VISIBLE = True ' +
-           'AND S2.FI_STATUS = True ' +
-           'AND S3.FTI_VISIBLE = True ' +
-           'AND S4.FC_STATUS = True ' +
-           'AND S1.FDI_TIPOOPERACION IN (11, 12) ' +
-           'AND S1.FDI_FECHAOPERACION >= ''' + FormatDateTime('yyyy-mm-dd', FFechaInicio) + ''' ' +
-           'AND S1.FDI_FECHAOPERACION <= ''' + FormatDateTime('yyyy-mm-dd', FFechaFin) + ''' ' +
-           'ORDER BY S1.FDI_FECHAOPERACION DESC, S1.FDI_DOCUMENTO DESC';
+    // Construir consulta SQL con filtros de fecha y tipos de documento
+SQL := 'SELECT S1.FDI_CODIGO, ' +
+       'S2.FI_CATEGORIA, ' +
+       'S1.FDI_FECHAOPERACION, ' +
+       'S1.FDI_CANTIDAD, ' +
+       'S1.FDI_MONEDA, ' +
+       'S1.FDI_FACTORCAMBIO, ' +
+       'S1.FDI_PRECIODEVENTA, ' +
+       'S5.FIC_COSTOACTEXTRANJERO AS FDI_COSTODEVENTAS, ' +  // <- CAMBIO AQUÍ
+       'S1.FDI_DOCUMENTO, ' +
+       'S3.FTI_PERSONACONTACTO, ' +
+       'S4.FC_EMAIL, ' +
+       'S3.FTI_TELEFONOCONTACTO, ' +
+       'S1.FDI_TIPOOPERACION ' +
+       'FROM SDetalleVenta S1 ' +
+       'INNER JOIN Sinventario S2 ON S1.FDI_CODIGO = S2.FI_CODIGO ' +
+       'INNER JOIN SOperacionInv S3 ON S1.FDI_DOCUMENTO = S3.FTI_DOCUMENTO ' +
+       'INNER JOIN Sclientes S4 ON S1.FDI_CLIENTEPROVEEDOR = S4.FC_CODIGO ' +
+       'INNER JOIN a2InvCostosPrecios S5 ON S1.FDI_CODIGO = S5.FIC_CODEITEM ' +  // <- NUEVA LÍNEA
+       'WHERE S1.FDI_VISIBLE = True ' +
+       'AND S2.FI_STATUS = True ' +
+       'AND S3.FTI_VISIBLE = True ' +
+       'AND S4.FC_STATUS = True ' +
+       'AND S1.FDI_TIPOOPERACION IN (11, 11) ' +
+       'AND S1.FDI_FECHAOPERACION >= ''' + FormatDateTime('yyyy-mm-dd', FFechaInicio) + ''' ' +
+       'AND S1.FDI_FECHAOPERACION <= ''' + FormatDateTime('yyyy-mm-dd', FFechaFin) + ''' ' +
+       'ORDER BY S1.FDI_FECHAOPERACION DESC, S1.FDI_DOCUMENTO DESC';
 
     // Ejecutar consulta con configuración optimizada
     FQuery.Close;
@@ -395,6 +801,8 @@ begin
     CoUninitialize;
   end;
 end;
+
+{ TReporteComprasThread }
 
 // Constructor del Thread para Reporte de Compras
 constructor TReporteComprasThread.Create;
@@ -574,7 +982,7 @@ begin
            'AND S2.FI_STATUS = True ' +
            'AND S3.FTI_VISIBLE = True ' +
            'AND S4.FC_STATUS = True ' +
-           'AND S1.FDI_TIPOOPERACION IN (11, 12) ' +
+           'AND S1.FDI_TIPOOPERACION IN (6, 6) ' +
            'AND S1.FDI_FECHAOPERACION >= ''' + FormatDateTime('yyyy-mm-dd', FFechaInicio) + ''' ' +
            'AND S1.FDI_FECHAOPERACION <= ''' + FormatDateTime('yyyy-mm-dd', FFechaFin) + ''' ' +
            'ORDER BY S1.FDI_FECHAOPERACION DESC, S1.FDI_DOCUMENTO DESC';
@@ -687,6 +1095,69 @@ begin
   end;
 end;
 
+{ TReporteInventarioThread }
+
+// Constructor del Thread para Reporte de Inventario
+constructor TReporteInventarioThread.Create;
+begin
+  inherited Create(False);
+  WriteLog('=== INICIO: Constructor TReporteInventarioThread ===');
+
+  // Tomar parámetros desde el formulario actual
+  if Assigned(formExport) then
+  begin
+    WriteLog('formExport está asignado');
+    FQuery := formExport.sqProductosVendidos;
+    if not Assigned(FQuery) then
+    begin
+      WriteLog('ERROR: El componente sqProductosVendidos NO está asignado');
+      raise Exception.Create('El componente sqProductosVendidos no está asignado');
+    end;
+    WriteLog('sqProductosVendidos está asignado correctamente');
+  end
+  else
+  begin
+    WriteLog('ERROR: El formulario formExport NO está asignado');
+    raise Exception.Create('El formulario formExport no está asignado');
+  end;
+
+  FMaxRetries := 3;
+  FRetryDelay := 2000; // 2 segundos
+  FreeOnTerminate := True;
+  WriteLog('Constructor completado exitosamente');
+end;
+
+// Implementación del Thread para Reporte de Inventario
+procedure TReporteInventarioThread.Execute;
+begin
+  WriteLog('=== INICIO: Execute ===');
+  try
+    try
+      WriteLog('Llamando a ExportarInventarioExcel...');
+      ExportarInventarioExcel;
+      WriteLog('ExportarInventarioExcel completado exitosamente');
+      FMensaje := 'Reporte de Inventario exportado correctamente a Excel';
+      FError := False;
+    except
+      on E: Exception do
+      begin
+        WriteLog('ERROR en Execute: ' + E.Message + ' - Clase: ' + E.ClassName);
+        FMensaje := 'Error al exportar inventario: ' + E.Message + ' - Clase: ' + E.ClassName;
+        FError := True;
+      end;
+    end;
+  finally
+    WriteLog('Llamando a Synchronize(MostrarMensaje)...');
+    Synchronize(MostrarMensaje);
+    WriteLog('=== FIN: Execute ===');
+  end;
+end;
+
+procedure TReporteInventarioThread.MostrarMensaje;
+begin
+  ShowMessage(FMensaje);
+end;
+
 // Método para escribir en el log
 procedure TReporteInventarioThread.WriteLog(const Msg: string);
 var
@@ -795,67 +1266,6 @@ begin
       WriteLog('Error general al cerrar ExcelApp (ignorado): ' + E.Message);
   end;
   WriteLog('=== FIN: SafeCloseExcel ===');
-end;
-
-// Constructor del Thread para Reporte de Inventario
-constructor TReporteInventarioThread.Create;
-begin
-  inherited Create(False);
-  WriteLog('=== INICIO: Constructor TReporteInventarioThread ===');
-
-  // Tomar parámetros desde el formulario actual
-  if Assigned(formExport) then
-  begin
-    WriteLog('formExport está asignado');
-    FQuery := formExport.sqProductosVendidos;
-    if not Assigned(FQuery) then
-    begin
-      WriteLog('ERROR: El componente sqProductosVendidos NO está asignado');
-      raise Exception.Create('El componente sqProductosVendidos no está asignado');
-    end;
-    WriteLog('sqProductosVendidos está asignado correctamente');
-  end
-  else
-  begin
-    WriteLog('ERROR: El formulario formExport NO está asignado');
-    raise Exception.Create('El formulario formExport no está asignado');
-  end;
-
-  FMaxRetries := 3;
-  FRetryDelay := 2000; // 2 segundos
-  FreeOnTerminate := True;
-  WriteLog('Constructor completado exitosamente');
-end;
-
-// Implementación del Thread para Reporte de Inventario
-procedure TReporteInventarioThread.Execute;
-begin
-  WriteLog('=== INICIO: Execute ===');
-  try
-    try
-      WriteLog('Llamando a ExportarInventarioExcel...');
-      ExportarInventarioExcel;
-      WriteLog('ExportarInventarioExcel completado exitosamente');
-      FMensaje := 'Reporte de Inventario exportado correctamente a Excel';
-      FError := False;
-    except
-      on E: Exception do
-      begin
-        WriteLog('ERROR en Execute: ' + E.Message + ' - Clase: ' + E.ClassName);
-        FMensaje := 'Error al exportar inventario: ' + E.Message + ' - Clase: ' + E.ClassName;
-        FError := True;
-      end;
-    end;
-  finally
-    WriteLog('Llamando a Synchronize(MostrarMensaje)...');
-    Synchronize(MostrarMensaje);
-    WriteLog('=== FIN: Execute ===');
-  end;
-end;
-
-procedure TReporteInventarioThread.MostrarMensaje;
-begin
-  ShowMessage(FMensaje);
 end;
 
 // Función para exportar inventario a Excel
@@ -1059,6 +1469,8 @@ begin
   end;
 end;
 
+{ TProductosVendidosThread }
+
 // Constructor del Thread para Productos Vendidos
 constructor TProductosVendidosThread.Create;
 begin
@@ -1080,6 +1492,8 @@ begin
   ShowMessage(FMensaje);
 end;
 
+{ TformExport }
+
 // Función para ejecutar Reporte de Ventas
 procedure TformExport.EjecutarReporteVentas;
 var
@@ -1092,24 +1506,6 @@ begin
   end;
 
   Thread := TReporteVentasThread.Create(dtp1.Date, dtp2.Date, sqProductosVendidos);
-end;
-
-procedure TformExport.FormShow(Sender: TObject);
-var
-  Year, Month, Day: Word;
-begin
-   // Obtener el año y mes actual
-   DecodeDate(Now, Year, Month, Day);
-   // dtp1 = Primer día del mes actual
-   dtp1.Date := EncodeDate(Year, Month, 1);
-   // dtp2 = Día de hoy
-   dtp2.Date := Now;
-end;
-
-procedure TformExport.FormStartDock(Sender: TObject;
-  var DragObject: TDragDockObject);
-begin
-
 end;
 
 // Función para ejecutar Reporte de Compras
@@ -1130,6 +1526,19 @@ begin
   except
     on E: Exception do
       ShowMessage('Error al crear thread de inventario: ' + E.Message);
+  end;
+end;
+
+// Función para ejecutar Reporte de Inventario Inicio
+procedure TformExport.EjecutarReporteInventarioInicio;
+var
+  Thread: TReporteInventarioInicioThread;
+begin
+  try
+    Thread := TReporteInventarioInicioThread.Create;
+  except
+    on E: Exception do
+      ShowMessage('Error al crear thread de inventario inicio: ' + E.Message);
   end;
 end;
 
@@ -1193,6 +1602,24 @@ begin
   btnProcesar.Enabled := True;
 end;
 
+procedure TformExport.FormShow(Sender: TObject);
+var
+  Year, Month, Day: Word;
+begin
+   // Obtener el año y mes actual
+   DecodeDate(Now, Year, Month, Day);
+   // dtp1 = Primer día del mes actual
+   dtp1.Date := EncodeDate(Year, Month, 1);
+   // dtp2 = Día de hoy
+   dtp2.Date := Now;
+end;
+
+procedure TformExport.FormStartDock(Sender: TObject;
+  var DragObject: TDragDockObject);
+begin
+
+end;
+
 // Event handler para el botón procesar
 procedure TformExport.btnProcesarClick(Sender: TObject);
 begin
@@ -1201,10 +1628,10 @@ begin
     1: EjecutarReporteCompras;
     2: EjecutarReporteInventario;
     3: EjecutarReportesdelDia;
+    4: EjecutarReporteInventarioInicio;  // Aqui Vamos a ejecutar el de ventas - entregado
   else
     ShowMessage('Seleccione un tipo de reporte');
   end;
 end;
 
 end.
-

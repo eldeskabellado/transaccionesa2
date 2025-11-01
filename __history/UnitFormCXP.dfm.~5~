@@ -1,0 +1,152 @@
+object formCXP: TformCXP
+  Left = 0
+  Top = 0
+  Caption = 'Cuentas por Pagar'
+  ClientHeight = 450
+  ClientWidth = 800
+  Color = clBtnFace
+  Font.Charset = DEFAULT_CHARSET
+  Font.Color = clWindowText
+  Font.Height = -11
+  Font.Name = 'Tahoma'
+  Font.Style = []
+  OldCreateOrder = False
+  Position = poScreenCenter
+  OnClose = FormClose
+  OnCreate = FormCreate
+  PixelsPerInch = 96
+  TextHeight = 13
+  object Label1: TLabel
+    Left = 24
+    Top = 24
+    Width = 95
+    Height = 13
+    Caption = 'C'#243'digo Proveedor:'
+  end
+  object lblProveedor: TLabel
+    Left = 24
+    Top = 56
+    Width = 3
+    Height = 13
+    Font.Charset = DEFAULT_CHARSET
+    Font.Color = clWindowText
+    Font.Height = -11
+    Font.Name = 'Tahoma'
+    Font.Style = [fsBold]
+    ParentFont = False
+  end
+  object edt1: TEdit
+    Left = 125
+    Top = 21
+    Width = 150
+    Height = 21
+    TabOrder = 0
+    OnChange = edt1Change
+  end
+  object btn1: TButton
+    Left = 290
+    Top = 19
+    Width = 100
+    Height = 25
+    Caption = 'Buscar...'
+    TabOrder = 1
+    OnClick = btn1Click
+  end
+  object DBGrid1: TDBGrid
+    Left = 24
+    Top = 88
+    Width = 752
+    Height = 338
+    DataSource = dsqCXP
+    TabOrder = 2
+    TitleFont.Charset = DEFAULT_CHARSET
+    TitleFont.Color = clWindowText
+    TitleFont.Height = -11
+    TitleFont.Name = 'Tahoma'
+    TitleFont.Style = []
+  end
+  object sqCXP: TDBISAMQuery
+    Left = 720
+    Top = 24
+  end
+  object dsqCXP: TDataSource
+    Left = 752
+    Top = 24
+  end
+end
+
+object FormBusquedaProveedor: TFormBusquedaProveedor
+  Left = 0
+  Top = 0
+  Caption = 'Buscar Proveedor'
+  ClientHeight = 400
+  ClientWidth = 650
+  Color = clBtnFace
+  Font.Charset = DEFAULT_CHARSET
+  Font.Color = clWindowText
+  Font.Height = -11
+  Font.Name = 'Tahoma'
+  Font.Style = []
+  OldCreateOrder = False
+  Position = poMainFormCenter
+  OnClose = FormClose
+  OnCreate = FormCreate
+  OnShow = FormShow
+  PixelsPerInch = 96
+  TextHeight = 13
+  object Label1: TLabel
+    Left = 24
+    Top = 24
+    Width = 150
+    Height = 13
+    Caption = 'Buscar por C'#243'digo o Nombre:'
+  end
+  object DBGrid1: TDBGrid
+    Left = 24
+    Top = 80
+    Width = 602
+    Height = 280
+    DataSource = dsqProveedor
+    TabOrder = 0
+    TitleFont.Charset = DEFAULT_CHARSET
+    TitleFont.Color = clWindowText
+    TitleFont.Height = -11
+    TitleFont.Name = 'Tahoma'
+    TitleFont.Style = []
+    OnDblClick = DBGrid1DblClick
+  end
+  object edt1: TEdit
+    Left = 24
+    Top = 43
+    Width = 350
+    Height = 21
+    TabOrder = 1
+    OnKeyPress = edt1KeyPress
+  end
+  object btn1: TButton
+    Left = 390
+    Top = 41
+    Width = 100
+    Height = 25
+    Caption = 'Buscar'
+    TabOrder = 2
+    OnClick = btn1Click
+  end
+  object btn2: TButton
+    Left = 526
+    Top = 366
+    Width = 100
+    Height = 25
+    Caption = 'Cancelar'
+    TabOrder = 3
+    OnClick = btn2Click
+  end
+  object sqProveedor: TDBISAMQuery
+    Left = 584
+    Top = 24
+  end
+  object dsqProveedor: TDataSource
+    Left = 616
+    Top = 24
+  end
+end

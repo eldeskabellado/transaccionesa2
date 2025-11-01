@@ -1,0 +1,388 @@
+﻿unit UnitAcercade;
+
+interface
+
+uses
+  Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants,
+  System.Classes, Vcl.Graphics, Vcl.Controls, Vcl.Forms, Vcl.Dialogs,
+  Vcl.StdCtrls, Vcl.ExtCtrls, System.JSON, System.NetEncoding;
+
+type
+  TEvolutionResult = record
+    Success: Boolean;
+    Message: array[0..1023] of Char;
+    Data: array[0..8191] of Char;
+    ErrorCode: Integer;
+  end;
+
+  TformConectar = class(TForm)
+    btnMostrarQR: TButton;
+    imgQR: TImage;
+    lblEstado: TLabel;
+    Timer1: TTimer;
+    btnEnviarMensaje: TButton;
+    edtTelefono: TEdit;
+    memoMensaje: TMemo;
+    memoDebug: TMemo;
+    procedure btnMostrarQRClick(Sender: TObject);
+    procedure FormCreate(Sender: TObject);
+    procedure FormDestroy(Sender: TObject);
+    procedure Timer1Timer(Sender: TObject);
+    procedure btnEnviarMensajeClick(Sender: TObject);
+    procedure btnTestConexionClick(Sender: TObject);
+  private
+    FConectado: Boolean;
+    FDebugLog: TStringList;
+    procedure ActualizarEstado;
+    procedure Log(const Msg: string);
+    procedure MostrarLog;
+  public
+    { Public declarations }
+  end;
+
+var
+  formConectar: TformConectar;
+
+function EVO_Initialize(IniFilePath: PChar): Boolean; stdcall; external 'EvolutionAPI_DLL.dll';
+procedure EVO_Finalize; stdcall; external 'EvolutionAPI_DLL.dll';
+function EVO_SetConfig(BaseURL, InstanceID, APIKey: PChar): Boolean; stdcall; external 'EvolutionAPI_DLL.dll';
+function EVO_GetConfig(Buffer: PChar; BufferSize: Integer): Boolean; stdcall; external 'EvolutionAPI_DLL.dll';
+function EVO_TestConnection(out AResult: TEvolutionResult): Boolean; stdcall; external 'EvolutionAPI_DLL.dll';
+function EVO_GetQRCode(out AResult: TEvolutionResult): Boolean; stdcall; external 'EvolutionAPI_DLL.dll';
+function EVO_GetInstanceStatus(out AResult: TEvolutionResult): Boolean; stdcall; external 'EvolutionAPI_DLL.dll';
+function EVO_IsConnected: Boolean; stdcall; external 'EvolutionAPI_DLL.dll';
+function EVO_SendMessage(PhoneNumber, Message: PChar; out AResult: TEvolutionResult): Boolean; stdcall; external 'EvolutionAPI_DLL.dll';
+function EVO_GetLastError(Buffer: PChar; BufferSize: Integer): Boolean; stdcall; external 'EvolutionAPI_DLL.dll';
+function EVO_GetVersion: PChar; stdcall; external 'EvolutionAPI_DLL.dll';
+
+implementation
+
+{$R *.dfm}
+
+procedure TformConectar.Log(const Msg: string);
+begin
+  if not Assigned(FDebugLog) then
+    FDebugLog := TStringList.Create;
+  FDebugLog.Add(FormatDateTime('hh:nn:ss', Now) + ' - ' + Msg);
+end;
+
+procedure TformConectar.MostrarLog;
+begin
+  if Assigned(FDebugLog) and (FDebugLog.Count > 0) then
+  begin
+    ShowMessage(FDebugLog.Text);
+    FDebugLog.Clear;
+  end;
+end;
+
+procedure TformConectar.FormCreate(Sender: TObject);
+var
+  IniPath: string;
+  ErrorBuffer: array[0..1023] of Char;
+begin
+  FDebugLog := TStringList.Create;
+  FConectado := False;
+  imgQR.Visible := False;
+
+  Log('=== INICIANDO APLICACIÓN ===');
+  Log('Versión DLL: ' + string(EVO_GetVersion));
+
+  // ⭐⭐⭐ CAMBIAR ESTOS VALORES POR LOS TUYOS ⭐⭐⭐
+  IniPath := ExtractFilePath(Application.ExeName) + 'config.ini';
+  Log('Buscando: ' + IniPath);
+
+  if FileExists(IniPath) then
+  begin
+    Log('Archivo .ini encontrado');
+    if EVO_Initialize(PChar(IniPath)) then
+    begin
+      lblEstado.Caption := '✓ Inicializado';
+      lblEstado.Font.Color := clGreen;
+      Log('✓ OK desde .ini');
+      Timer1.Enabled := True;
+    end
+    else
+    begin
+      if EVO_GetLastError(@ErrorBuffer, Length(ErrorBuffer)) then
+        Log('✗ Error .ini: ' + string(ErrorBuffer));
+      lblEstado.Caption := '✗ Error .ini';
+      lblEstado.Font.Color := clRed;
+      MostrarLog;
+    end;
+  end
+  else
+  begin
+    Log('.ini NO encontrado, config manual');
+
+    // ⭐⭐⭐ CAMBIAR POR TUS DATOS REALES ⭐⭐⭐
+    if EVO_SetConfig(
+      PChar('http://190.104.137.234:8080'),  // ⭐ TU URL
+      PChar('despachos'),                     // ⭐ TU INSTANCIA
+      PChar('B6D711FCDE4D4FD5254E7750E9063F34')  // ⭐ TU API KEY
+    ) then
+    begin
+      lblEstado.Caption := '✓ Configurado';
+      lblEstado.Font.Color := clGreen;
+      Log('✓ Config manual OK');
+      Timer1.Enabled := True;
+    end
+    else
+    begin
+      if EVO_GetLastError(@ErrorBuffer, Length(ErrorBuffer)) then
+        Log('✗ Error config: ' + string(ErrorBuffer));
+      lblEstado.Caption := '✗ Error config';
+      lblEstado.Font.Color := clRed;
+      MostrarLog;
+    end;
+  end;
+end;
+
+procedure TformConectar.FormDestroy(Sender: TObject);
+begin
+  Timer1.Enabled := False;
+  EVO_Finalize;
+  if Assigned(FDebugLog) then
+    FDebugLog.Free;
+end;
+
+procedure TformConectar.Timer1Timer(Sender: TObject);
+begin
+  ActualizarEstado;
+end;
+
+procedure TformConectar.ActualizarEstado;
+var
+  Res: TEvolutionResult;
+  DataStr: string;
+  JSON: TJSONObject;
+  Estado: string;
+begin
+  if not EVO_GetInstanceStatus(Res) then Exit;
+
+  if not Res.Success then Exit;
+
+  try
+    SetString(DataStr, PChar(@Res.Data[0]), StrLen(PChar(@Res.Data[0])));
+
+    if DataStr = '' then Exit;
+
+    JSON := TJSONObject.ParseJSONValue(DataStr) as TJSONObject;
+    if Assigned(JSON) then
+    try
+      if JSON.TryGetValue<string>('state', Estado) then
+      begin
+        if Estado = 'open' then
+        begin
+          lblEstado.Caption := '✓ Conectado';
+          lblEstado.Font.Color := clGreen;
+          imgQR.Visible := False;
+          btnMostrarQR.Enabled := False;
+          FConectado := True;
+        end
+        else if Estado = 'close' then
+        begin
+          lblEstado.Caption := '✗ Desconectado';
+          lblEstado.Font.Color := clRed;
+          btnMostrarQR.Enabled := True;
+          FConectado := False;
+        end;
+      end;
+    finally
+      JSON.Free;
+    end;
+  except
+    // Silencioso
+  end;
+end;
+
+procedure TformConectar.btnMostrarQRClick(Sender: TObject);
+var
+  Res: TEvolutionResult;
+  DataStr: string;
+  JSON: TJSONObject;
+  Base64QR: string;
+  Stream: TMemoryStream;
+  Bytes: TBytes;
+begin
+  FDebugLog.Clear;
+  Log('=== GENERANDO QR ===');
+
+  lblEstado.Caption := 'Generando QR...';
+  Application.ProcessMessages;
+
+  if not EVO_GetQRCode(Res) then
+  begin
+    Log('✗ EVO_GetQRCode = False');
+    MostrarLog;
+    ShowMessage('Error llamando GetQRCode');
+    Exit;
+  end;
+
+  Log('Success: ' + BoolToStr(Res.Success, True));
+  Log('ErrorCode: ' + IntToStr(Res.ErrorCode));
+  Log('Message: ' + string(Res.Message));
+
+  SetString(DataStr, PChar(@Res.Data[0]), StrLen(PChar(@Res.Data[0])));
+  Log('Data Length: ' + IntToStr(Length(DataStr)));
+  Log('Data (500): ' + Copy(DataStr, 1, 500));
+
+  if not Res.Success then
+  begin
+    Log('✗ Success = False');
+    MostrarLog;
+    ShowMessage('Error: ' + string(Res.Message));
+    Exit;
+  end;
+
+  if DataStr = '' then
+  begin
+    Log('✗ Data vacío');
+    MostrarLog;
+    ShowMessage('Respuesta vacía');
+    Exit;
+  end;
+
+  try
+    JSON := TJSONObject.ParseJSONValue(DataStr) as TJSONObject;
+
+    if not Assigned(JSON) then
+    begin
+      Log('✗ JSON = nil');
+      MostrarLog;
+      ShowMessage('JSON inválido');
+      Exit;
+    end;
+
+    try
+      Log('✓ JSON parseado');
+      Log('JSON: ' + JSON.ToString);
+
+      if JSON.TryGetValue<string>('qrcode', Base64QR) or
+         JSON.TryGetValue<string>('qr', Base64QR) or
+         JSON.TryGetValue<string>('base64', Base64QR) or
+         JSON.TryGetValue<string>('code', Base64QR) then
+      begin
+        Log('✓ QR encontrado: ' + IntToStr(Length(Base64QR)) + ' chars');
+
+        if Pos('base64,', Base64QR) > 0 then
+          Base64QR := Copy(Base64QR, Pos('base64,', Base64QR) + 7, Length(Base64QR));
+
+        try
+          Bytes := TNetEncoding.Base64.DecodeStringToBytes(Base64QR);
+          Log('✓ Decodificado: ' + IntToStr(Length(Bytes)) + ' bytes');
+
+          Stream := TMemoryStream.Create;
+          try
+            Stream.WriteBuffer(Bytes[0], Length(Bytes));
+            Stream.Position := 0;
+            imgQR.Picture.LoadFromStream(Stream);
+            imgQR.Stretch := True;
+            imgQR.Proportional := True;
+            imgQR.Visible := True;
+
+            Log('✓ IMAGEN CARGADA OK');
+            lblEstado.Caption := '📱 Escanea el QR';
+            lblEstado.Font.Color := clBlue;
+
+            // Mostrar log exitoso
+            MostrarLog;
+            ShowMessage('QR generado. Escanea con WhatsApp');
+          finally
+            Stream.Free;
+          end;
+        except
+          on E: Exception do
+          begin
+            Log('✗ Error Base64: ' + E.Message);
+            MostrarLog;
+            ShowMessage('Error decodificando: ' + E.Message);
+          end;
+        end;
+      end
+      else
+      begin
+        Log('✗ Campo QR no encontrado');
+        Log('Campos: ' + JSON.ToString);
+        MostrarLog;
+        ShowMessage('Campo QR no encontrado en respuesta');
+      end;
+    finally
+      JSON.Free;
+    end;
+  except
+    on E: Exception do
+    begin
+      Log('✗ EXCEPCIÓN: ' + E.Message);
+      MostrarLog;
+      ShowMessage('Error: ' + E.Message);
+    end;
+  end;
+end;
+
+procedure TformConectar.btnEnviarMensajeClick(Sender: TObject);
+var
+  Res: TEvolutionResult;
+  Telefono, Mensaje: string;
+begin
+  if not FConectado then
+  begin
+    ShowMessage('Conecta WhatsApp primero');
+    Exit;
+  end;
+
+  Telefono := Trim(edtTelefono.Text);
+  Mensaje := Trim(memoMensaje.Text);
+
+  if (Telefono = '') or (Mensaje = '') then
+  begin
+    ShowMessage('Ingresa teléfono y mensaje');
+    Exit;
+  end;
+
+  // Limpiar número
+  Telefono := StringReplace(Telefono, '-', '', [rfReplaceAll]);
+  Telefono := StringReplace(Telefono, ' ', '', [rfReplaceAll]);
+  Telefono := StringReplace(Telefono, '(', '', [rfReplaceAll]);
+  Telefono := StringReplace(Telefono, ')', '', [rfReplaceAll]);
+
+  if EVO_SendMessage(PChar(Telefono), PChar(Mensaje), Res) then
+  begin
+    if Res.Success then
+    begin
+      ShowMessage('✓ Mensaje enviado');
+      memoMensaje.Clear;
+    end
+    else
+      ShowMessage('Error: ' + string(Res.Message));
+  end
+  else
+    ShowMessage('Fallo al enviar');
+end;
+
+procedure TformConectar.btnTestConexionClick(Sender: TObject);
+var
+  Res: TEvolutionResult;
+  Buffer: array[0..1023] of Char;
+  LogText: string;
+begin
+  FDebugLog.Clear;
+  Log('=== TEST CONEXIÓN ===');
+
+  if EVO_TestConnection(Res) then
+  begin
+    Log('Success: ' + BoolToStr(Res.Success, True));
+    Log('Message: ' + string(Res.Message));
+    Log('Data: ' + string(Res.Data));
+  end
+  else
+    Log('✗ Test falló');
+
+  if EVO_GetConfig(@Buffer, Length(Buffer)) then
+    Log('Config: ' + string(Buffer));
+
+  Log('Versión: ' + string(EVO_GetVersion));
+
+  MostrarLog;
+end;
+
+end.

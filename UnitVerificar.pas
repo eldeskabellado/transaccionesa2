@@ -1,4 +1,4 @@
-unit UnitVerificar;
+﻿unit UnitVerificar;
 
 interface
 
@@ -6,7 +6,8 @@ uses
   Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants, System.Classes, Vcl.Graphics,
   Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.StdCtrls, Data.DB, dbisamtb,
   Vcl.ExtCtrls, Vcl.Grids, Vcl.DBGrids, Vcl.Buttons, frxClass, frxDBSet,
-  frxBarcode, frxCellularTextObject, sicm, ShellApi;
+  frxBarcode, frxCellularTextObject, sicm, ShellApi,
+  EvolutionAPI, System.NetEncoding, frxExportPDF;  // ⭐ Agregadas
 
 type
   TFormVerificar = class(TForm)
@@ -59,6 +60,14 @@ type
     lblVendedor: TLabel;
     lblbultos: TLabel;
     edtbultos: TEdit;
+    frdt1: TfrxDBDataset;
+    frpDespacho: TfrxReport;
+    frdt2: TfrxDBDataset;
+    lbl6: TLabel;
+    edtCelular: TEdit;
+    chkEnviar: TCheckBox;
+    sqProduct: TDBISAMQuery;
+    sqborrar1: TDBISAMQuery;
     procedure FormShow(Sender: TObject);
     procedure Button1Click(Sender: TObject);
     procedure edtCodigoExit(Sender: TObject);
@@ -74,8 +83,6 @@ type
     { Private declarations }
   public
     { Public declarations }
-
-
   end;
 
 var
@@ -84,7 +91,7 @@ var
   guia_farmapatria,
   cod_seguridad,
   nro_scim,
-  url_guia:string;
+  url_guia: string;
   documento,
   direccion,
   cel_vendedor,
@@ -96,28 +103,119 @@ var
   canttemp: Currency;
   nroregistro,
   accion: Integer;
-   ClaveSupervisor: string;
+  ClaveSupervisor,
+  celular: string;
+  operacion:integer;
 
 implementation
 
 {$R *.dfm}
 
-uses UnitDatos, UnitPrincipal, UnitClave;
+uses UnitDatos, UnitPrincipal, UnitClave, UnitVariables;
+
+// ⭐⭐⭐ FUNCIÓN NUEVA PARA ENVIAR PDF POR WHATSAPP ⭐⭐⭐
+// ⭐⭐⭐ VERSIÓN ALTERNATIVA CON SendPDFMessage ⭐⭐⭐
+// ⭐⭐⭐ VERSIÓN CON LOGGING DETALLADO PARA DEBUG ⭐⭐⭐
+// ⭐⭐⭐ FUNCIÓN CORREGIDA - ERROR DE FileSize ⭐⭐⭐
+// ⭐⭐⭐ FUNCIÓN CORREGIDA - FORMATO VENEZUELA ⭐⭐⭐
+// ⭐⭐⭐ VERSIÓN CON VALIDACIÓN DE NÚMERO ⭐⭐⭐
+function EnviarReportePorWhatsApp(Reporte: TfrxReport; const NumeroTelefono, Mensaje: string): Boolean;
+var
+  PDFExport: TfrxPDFExport;
+  EvolutionAPI: TEvolutionAPI;
+  Response: TEvolutionResponse;
+  Telefono: string;
+  TempPDFPath: string;
+begin
+  Result := False;
+  PDFExport := TfrxPDFExport.Create(nil);
+
+  try
+    try
+      // 1. Preparar y exportar PDF
+      Reporte.PrepareReport(True);
+
+      TempPDFPath := ExtractFilePath(ParamStr(0)) + 'temp_' +
+                     FormatDateTime('yyyymmddhhnnss', Now) + '.pdf';
+
+      PDFExport.ShowDialog := False;
+      PDFExport.ShowProgress := False;
+      PDFExport.FileName := TempPDFPath;
+      PDFExport.DefaultPath := ExtractFilePath(TempPDFPath);
+      Reporte.Export(PDFExport);
+
+      if not FileExists(TempPDFPath) then
+        Exit;
+
+      // 2. Formatear número
+      Telefono := StringReplace(NumeroTelefono, '-', '', [rfReplaceAll]);
+      Telefono := StringReplace(Telefono, ' ', '', [rfReplaceAll]);
+      Telefono := StringReplace(Telefono, '(', '', [rfReplaceAll]);
+      Telefono := StringReplace(Telefono, ')', '', [rfReplaceAll]);
+      Telefono := StringReplace(Telefono, '+', '', [rfReplaceAll]);
+
+      // Convertir a formato internacional Venezuela
+      if (Length(Telefono) > 0) and (Telefono[1] = '0') then
+        Telefono := Copy(Telefono, 2, Length(Telefono) - 1);
+
+      if not Telefono.StartsWith('58') then
+        Telefono := '58' + Telefono;
+
+      if Telefono = '' then
+      begin
+        if FileExists(TempPDFPath) then
+          DeleteFile(TempPDFPath);
+        Exit;
+      end;
+
+      // 3. Enviar por WhatsApp
+      EvolutionAPI := TEvolutionAPI.Create(
+        URL_EVOLUTION,
+        INSTANCIA_EVOLUTION,
+        APIKEY_EVOLUTION
+      );
+
+      try
+        if not EvolutionAPI.IsInstanceConnected then
+          Exit;
+
+        Response := EvolutionAPI.SendMediaSimple(Telefono, TempPDFPath, Mensaje);
+
+        Result := Response.Success;
+
+      finally
+        EvolutionAPI.Free;
+      end;
+
+      // 4. Limpiar archivo temporal
+      if FileExists(TempPDFPath) then
+        DeleteFile(TempPDFPath);
+
+    except
+      Result := False;
+      if FileExists(TempPDFPath) then
+        DeleteFile(TempPDFPath);
+    end;
+
+  finally
+    PDFExport.Free;
+  end;
+end;
+
 function ValidarClaveSupervisor(const ClaveSupervisor: string): Boolean;
 begin
-  if ClaveSupervisor = '02289106' then
+  if ClaveSupervisor = '25' then
   begin
-    Result:=True;
+    Result := True;
   end
   else
   begin
-    Result:=False;
+    Result := False;
   end;
 end;
 
 procedure MostrarMensajeError(const Mensaje: string);
 begin
-  // Mostrar mensaje de error
   ShowMessage(Mensaje);
 end;
 
@@ -128,23 +226,20 @@ var
   ValidarBtn: TButton;
   CancelarBtn: TButton;
 begin
-  // Crear formulario
   Formulario := TForm.Create(nil);
   try
     Formulario.Caption := 'Ingrese la clave del supervisor';
     Formulario.Width := 300;
     Formulario.Height := 160;
-    Formulario.Position:=poMainFormCenter;
+    Formulario.Position := poMainFormCenter;
 
-    // Crear campo de texto para la clave
     ClaveEdit := TEdit.Create(Formulario);
     ClaveEdit.Parent := Formulario;
-    ClaveEdit.PasswordChar:='*';
+    ClaveEdit.PasswordChar := '*';
     ClaveEdit.Top := 50;
     ClaveEdit.Left := 50;
     ClaveEdit.Width := 200;
 
-    // Crear bot�n para validar
     ValidarBtn := TButton.Create(Formulario);
     ValidarBtn.Parent := Formulario;
     ValidarBtn.Top := 80;
@@ -153,7 +248,6 @@ begin
     ValidarBtn.Caption := 'Validar';
     ValidarBtn.ModalResult := mrOk;
 
-    // Crear bot�n para cancelar
     CancelarBtn := TButton.Create(Formulario);
     CancelarBtn.Parent := Formulario;
     CancelarBtn.Top := 80;
@@ -162,7 +256,6 @@ begin
     CancelarBtn.Caption := 'Cancelar';
     CancelarBtn.ModalResult := mrCancel;
 
-    // Mostrar formulario y esperar respuesta
     if Formulario.ShowModal = mrOk then
     begin
       ClaveSupervisor := ClaveEdit.Text;
@@ -178,566 +271,648 @@ begin
 end;
 
 function IsFloat(s: string): boolean;
-var n: double;
+var
+  n: double;
 begin
-try
- n:=StrToFloat(s);
- result:=True;
- except
- result:=False;
- end;
+  try
+    n := StrToFloat(s);
+    result := True;
+  except
+    result := False;
+  end;
 end;
 
 function IsInteger(s: string): boolean;
-var n: integer;
+var
+  n: integer;
 begin
-try
- n:=StrToInt(s);
- result:=True;
- except
- result:=False;
- end;
+  try
+    n := StrToInt(s);
+    result := True;
+  except
+    result := False;
+  end;
 end;
+
 procedure TFormVerificar.btn1Click(Sender: TObject);
 begin
-Close;
+  Close;
 end;
 
 procedure TFormVerificar.btn2Click(Sender: TObject);
 var
-cantrestante:Currency;
-i, n: Integer;
+  cantrestante: Currency;
+  i, n: Integer;
+  MensajeWhatsApp: string;
 begin
+  case rgOpcion.ItemIndex of
+    0: begin
+      if edtbultos.Text = '' then
+        edtbultos.Text := '1';
 
-    case rgOpcion.ItemIndex of
-      0: begin
-       if edtbultos.Text='' then
-          BEGIN
-            edtbultos.Text:='1';
-          END;
+      if Trim(lblCNTV.Caption) < Trim(lblCNTP.Caption) then
+      begin
+        if not MostrarFormularioClaveSupervisor(ClaveSupervisor) then
+          Exit;
 
-      if Trim(lblCNTV.Caption) < Trim(lblCNTP.Caption)  then
-               begin
-                 if not MostrarFormularioClaveSupervisor(ClaveSupervisor) then
-            Exit; // Cancelar el proceso si se cancela el formulario
+        if not ValidarClaveSupervisor(ClaveSupervisor) then
+        begin
+          MostrarMensajeError('Clave del supervisor incorrecta');
+          Exit;
+        end;
 
-          // Validar la clave del supervisor
-          if not ValidarClaveSupervisor(ClaveSupervisor) then
+        with sqrecorrer do
+        begin
+          Close;
+          ParamByName('pdocumento').AsString := documento;
+          Open;
+        end;
+
+        if not sqrecorrer.IsEmpty then
+        begin
+          sqrecorrer.First;
+          while not sqrecorrer.Eof do
           begin
-            MostrarMensajeError('Clave del supervisor incorrecta');
-            Exit; // Cancelar el proceso si la clave es incorrecta
+            with sqCerrar do
+            begin
+              Close;
+              SQL.Clear;
+              SQL.Add('UPDATE SDETALLEVENTA SET FDI_CANTIDADPENDIENTE = :pCantPendiente');
+              SQL.Add('WHERE FDI_CODIGO = :pCodigo');
+              SQL.Add('AND FDI_OPERACION_AUTOINCREMENT = :pnroregistro');
+              ParamByName('pCantPendiente').AsCurrency := sqrecorrer.FieldByName('OM_CANTPENDIENTE').AsCurrency;
+              ParamByName('pCodigo').AsString := sqrecorrer.FieldByName('OM_CODIGO').AsString;
+              ParamByName('pnroregistro').AsInteger := nroregistro;
+              ExecSQL;
+              sqrecorrer.Next;
+            end;
           end;
-           with sqrecorrer do
-        begin
-        Close;
-        ParamByName('pdocumento').AsString:=documento;
-        Open;
         end;
-        if not sqrecorrer.IsEmpty then
+
+        // Preparar datos del reporte
+        with sqProducto do
         begin
-          sqrecorrer.First;
-          while not sqrecorrer.Eof do
-            begin
-
-            with sqCerrar do
-              begin
-                Close;
-                SQL.Clear;
-                SQL.Add('UPDATE  SDETALLEVENTA SET FDI_CANTIDADPENDIENTE = :pCantPendiente');
-                SQL.Add('WHERE  FDI_CODIGO = :pCodigo');
-                SQL.Add('AND FDI_OPERACION_AUTOINCREMENT = :pnroregistro');
-                ParamByName('pCantPendiente').AsCurrency:=sqrecorrer.FieldByName('OM_CANTPENDIENTE').AsCurrency;
-                ParamByName('pCodigo').AsString:=sqrecorrer.FieldByName('OM_CODIGO').AsString;
-                ParamByName('pnroregistro').AsInteger:=nroregistro;
-                ExecSQL;
-               sqrecorrer.Next;
-              end;
-
-            end;
+          Close;
+          SQL.Clear;
+          SQL.Add('SELECT FDI_IMPUESTO1, FDI_PRECIOCONDESCUENTO, FDI_CANTIDAD,');
+          SQL.Add('FDI_DOCUMENTO, FDI_CODIGO, FI_DESCRIPCION, FDI_LOTE,');
+          SQL.Add('(FDI_PRECIOCONDESCUENTO * (1 + (FDI_IMPUESTO1 / 100))) AS PRECIO_CON_IVA,');
+          SQL.Add('(FDI_CANTIDAD * FDI_PRECIOCONDESCUENTO * (1 + (FDI_IMPUESTO1 / 100))) AS TOTAL_CON_IMPUESTO,');
+          SQL.Add('(FDI_CANTIDAD * FDI_PRECIOCONDESCUENTO) AS SUBTOTAL_SIN_IMPUESTO,');
+          SQL.Add('(FDI_CANTIDAD * FDI_PRECIOCONDESCUENTO * (FDI_IMPUESTO1 / 100)) AS MONTO_IMPUESTO');
+          SQL.Add('FROM SDETALLEVENTA');
+          SQL.Add('INNER JOIN SINVENTARIO ON SDETALLEVENTA.FDI_CODIGO = SINVENTARIO.FI_CODIGO');
+          SQL.Add('WHERE FDI_DOCUMENTO = :pDocumento AND FDI_TIPOOPERACION = :pTipo AND FDI_OPERACION_AUTOINCREMENT = :pOperacion ');
+          ParamByName('pDocumento').AsString := documento;
+          ParamByName('pTipo').AsInteger := 11;
+          ParamByName('pOperacion').AsInteger:=operacion;
+          Open;
         end;
-         //Imprimimos la Etiqueta
-       //  i:=StrToInt(edtbultos.Text);
-             for i := 1 to StrToInt(edtbultos.Text) do
-                begin
-                  // Aqu� puedes establecer los par�metros del informe si es necesario.
-                    with repetiqueta do
-                     begin
-                       urlwp:='https://wa.me/'+cel_vendedor+'?text=Escribo%20de%20'+labelCliente.Caption+'%2C%20Relacionado%20al%20Documento%20Nro%20'+documento;
-                       Variables['empresa']:=QuotedStr(empresa);
-                       Variables['factura']:=QuotedStr(documento);
-                       Variables['cliente']:=QuotedStr(labelCLIENTE.Caption);
-                       Variables['direccion']:=QuotedStr(mmo1.Text);
-                       Variables['rif_empresa']:=QuotedStr('J500726856');
-                       Variables['url']:=QuotedStr(urlwp);
-                       Variables['copia']:=IntToStr(i);
-                       Variables['nrocopias']:=QuotedStr(edtbultos.Text);
-                       PrintOptions.ShowDialog:=False;
-                       PrepareReport(True);
-                       Print;
-                     end;
-                end;
 
-
-
-
-         Close;
-               end
-               else
-               begin
-                  with sqrecorrer do
+        // Configurar reporte
+        with frpDespacho do
         begin
-        Close;
-        ParamByName('pdocumento').AsString:=documento;
-        Open;
+          urlwp := 'https://wa.me/' + cel_vendedor + '?text=Escribo%20de%20' +
+                   labelCliente.Caption + '%2C%20Relacionado%20al%20Documento%20Nro%20' + documento;
+          Variables['empresa'] := QuotedStr('FERRESOLAR, C.A.');
+          Variables['factura'] := QuotedStr(documento);
+          Variables['cliente'] := QuotedStr(labelCLIENTE.Caption);
+          Variables['direccion'] := QuotedStr(mmo1.Text);
+          Variables['rif_empresa'] := QuotedStr('J500726856');
+          Variables['url'] := QuotedStr(urlwp);
+          Variables['copia'] := IntToStr(1);
         end;
-        if not sqrecorrer.IsEmpty then
+
+        // ⭐⭐⭐ VERIFICAR CHECKBOX ANTES DE ENVIAR ⭐⭐⭐
+        if chkEnviar.Checked then
         begin
-          sqrecorrer.First;
-          while not sqrecorrer.Eof do
-            begin
-
-            with sqCerrar do
-              begin
-                Close;
-                SQL.Clear;
-                SQL.Add('UPDATE  SDETALLEVENTA SET FDI_CANTIDADPENDIENTE = :pCantPendiente');
-                SQL.Add('WHERE  FDI_CODIGO = :pCodigo');
-                SQL.Add('AND FDI_OPERACION_AUTOINCREMENT = :pnroregistro');
-                ParamByName('pCantPendiente').AsCurrency:=sqrecorrer.FieldByName('OM_CANTPENDIENTE').AsCurrency;
-                ParamByName('pCodigo').AsString:=sqrecorrer.FieldByName('OM_CODIGO').AsString;
-                ParamByName('pnroregistro').AsInteger:=nroregistro;
-                ExecSQL;
-               sqrecorrer.Next;
-              end;
-
-            end;
-        end;
-         //Imprimimos la Etiqueta
-       //  i:=StrToInt(edtbultos.Text);
-             for i := 1 to StrToInt(edtbultos.Text) do
-                begin
-                  // Aqu� puedes establecer los par�metros del informe si es necesario.
-                    with repetiqueta do
-                     begin
-                       urlwp:='https://wa.me/'+cel_vendedor+'?text=Escribo%20de%20'+labelCliente.Caption+'%2C%20Relacionado%20al%20Documento%20Nro%20'+documento;
-                       Variables['empresa']:=QuotedStr(empresa);
-                       Variables['factura']:=QuotedStr(documento);
-                       Variables['cliente']:=QuotedStr(labelCLIENTE.Caption);
-                       Variables['direccion']:=QuotedStr(mmo1.Text);
-                       Variables['rif_empresa']:=QuotedStr('J500726856');
-                       Variables['url']:=QuotedStr(urlwp);
-                       Variables['copia']:=IntToStr(i);
-                       Variables['nrocopias']:=QuotedStr(edtbultos.Text);
-                       PrintOptions.ShowDialog:=False;
-                       PrepareReport(True);
-                       Print;
-                     end;
-                end;
-
-
-
-
-         Close;
-               end;
-                //Abrimos la consulta
-
-         end;
-      1: begin
-          If IsInteger(edtbultos.text) then
+          // Verificar que haya número
+          if Trim(edtCelular.Text) = '' then
           begin
-              try
-             //Inicializamos la Guia
-             serv_farmapatria:=GetSicmPortType;
-             guia_farmapatria:= serv_farmapatria.inicializar_guia(cod_seguridad, StrToInt(nro_scim), StrToInt(edtbultos.Text), documento);
-                //Agregamos el Detalle a la Guia
-                 with sqrecorrer do
-                 begin
-                  Close;
-                  ParamByName('pdocumento').AsString:=documento;
-                  Open;
-                  end;
-            if not sqrecorrer.IsEmpty then
+            ShowMessage('⚠ Debes ingresar un número de celular para enviar por WhatsApp');
+            Exit;
+          end;
+
+          // Mensaje para WhatsApp
+          MensajeWhatsApp := Format('📦 Documento de Despacho N° %s' + #13#10 +
+                                     'Cliente: %s' + #13#10 +
+                                     'Empresa: FERRESOLAR, C.A.',
+                                     [documento, labelCLIENTE.Caption]);
+
+          // Enviar por WhatsApp
+          if EnviarReportePorWhatsApp(frpDespacho, edtCelular.Text, MensajeWhatsApp) then
+          begin
+            // Cerrar solo si se envió exitosamente
+            Close;
+          end;
+        end
+        else
+        begin
+          // ⭐ Si NO está marcado el checkbox, solo mostrar mensaje
+          ShowMessage('✓ Proceso completado' + #13#10 +
+                     '(No se envió por WhatsApp - checkbox desmarcado)');
+          Close;
+        end;
+      end
+      else
+      begin
+        // Cantidades coinciden - actualizar y enviar despacho
+        with sqrecorrer do
+        begin
+          Close;
+          ParamByName('pdocumento').AsString := documento;
+          Open;
+        end;
+
+        if not sqrecorrer.IsEmpty then
+        begin
+          sqrecorrer.First;
+          while not sqrecorrer.Eof do
+          begin
+            with sqCerrar do
             begin
-              sqrecorrer.First;
-              while not sqrecorrer.Eof do
-                begin
-                serv_farmapatria.guia_detalle_desc(cod_seguridad,StrToInt(guia_farmapatria), sqrecorrer.FieldByName('OM_MOLECULA').AsString, sqrecorrer.FieldByName('OM_LOTE').AsString,0, sqrecorrer.FieldByName('OM_CANT').AsInteger, sqrecorrer.FieldByName('OM_MOLECULA').AsString );
-                sqrecorrer.Next;
-                end;
-
+              Close;
+              SQL.Clear;
+              SQL.Add('UPDATE SDETALLEVENTA SET FDI_CANTIDADPENDIENTE = :pCantPendiente');
+              SQL.Add('WHERE FDI_CODIGO = :pCodigo');
+              SQL.Add('AND FDI_OPERACION_AUTOINCREMENT = :pnroregistro');
+              ParamByName('pCantPendiente').AsCurrency := sqrecorrer.FieldByName('OM_CANTPENDIENTE').AsCurrency;
+              ParamByName('pCodigo').AsString := sqrecorrer.FieldByName('OM_CODIGO').AsString;
+              ParamByName('pnroregistro').AsInteger := nroregistro;
+              ExecSQL;
+              sqrecorrer.Next;
             end;
-            serv_farmapatria.guia_validar(cod_seguridad, StrToInt(guia_farmapatria));
-            ShowMessage('Se ha Creado la Guia Nro: '+ guia_farmapatria);
-            url_guia:='http://www.sicm.gob.ve/g_4cguia.php?id_guia='+guia_farmapatria;
+          end;
+        end;
 
-            ShellExecute (0, 'open', PChar (url_guia), '', '', SW_SHOWNORMAL);
+        // ⭐⭐⭐ CORRECCIÓN: Enviar DESPACHO por WhatsApp (NO etiqueta) ⭐⭐⭐
+        if chkEnviar.Checked and (Trim(edtCelular.Text) <> '') then
+        begin
+          // Configurar DESPACHO
+          with frpDespacho do
+          begin
+            urlwp := 'https://wa.me/' + cel_vendedor + '?text=Escribo%20de%20' +
+                     labelCliente.Caption + '%2C%20Relacionado%20al%20Documento%20Nro%20' + documento;
+            Variables['empresa'] := QuotedStr(empresa);
+            Variables['factura'] := QuotedStr(documento);
+            Variables['cliente'] := QuotedStr(labelCLIENTE.Caption);
+            Variables['direccion'] := QuotedStr(mmo1.Text);
+            Variables['rif_empresa'] := QuotedStr('J500726856');
+            Variables['url'] := QuotedStr(urlwp);
+            Variables['copia'] := IntToStr(1);
+            Variables['nrocopias'] := QuotedStr(edtbultos.Text);
+          end;
 
-            except
-              On E: Exception do
-              begin
-                showmessage('Error: ' + E.ClassName + ' ' + E.Message);
-              end;
-
+          MensajeWhatsApp := Format('📦 Documento de Despacho N° %s', [documento]);
+          // ⭐ CORRECCIÓN APLICADA: Cambiar repetiqueta por frpDespacho ⭐
+          EnviarReportePorWhatsApp(frpDespacho, edtCelular.Text, MensajeWhatsApp);
+        end
+        else
+        begin
+          // Imprimir etiquetas normalmente
+          for i := 1 to StrToInt(edtbultos.Text) do
+          begin
+            with repetiqueta do
+            begin
+              urlwp := 'https://wa.me/' + cel_vendedor + '?text=Escribo%20de%20' +
+                       labelCliente.Caption + '%2C%20Relacionado%20al%20Documento%20Nro%20' + documento;
+              Variables['empresa'] := QuotedStr(empresa);
+              Variables['factura'] := QuotedStr(documento);
+              Variables['cliente'] := QuotedStr(labelCLIENTE.Caption);
+              Variables['direccion'] := QuotedStr(mmo1.Text);
+              Variables['rif_empresa'] := QuotedStr('J500726856');
+              Variables['url'] := QuotedStr(urlwp);
+              Variables['copia'] := IntToStr(i);
+              Variables['nrocopias'] := QuotedStr(edtbultos.Text);
+              PrintOptions.ShowDialog := False;
+              PrepareReport(True);
+              Print;
             end;
+          end;
+        end;
 
-         end
-         else
-         begin
-           ShowMessage('El Numero de Bultos debe ser un Numero Entero');
-           edtbultos.SetFocus;
-         end;
+        Close;
       end;
+    end;
 
-end;
+    1: begin
+      If IsInteger(edtbultos.text) then
+      begin
+        try
+          // Inicializar Guia Farmapatria
+          serv_farmapatria := GetSicmPortType;
+          guia_farmapatria := serv_farmapatria.inicializar_guia(cod_seguridad, StrToInt(nro_scim), StrToInt(edtbultos.Text), documento);
+
+          // Agregar Detalle a la Guia
+          with sqrecorrer do
+          begin
+            Close;
+            ParamByName('pdocumento').AsString := documento;
+            Open;
+          end;
+
+          if not sqrecorrer.IsEmpty then
+          begin
+            sqrecorrer.First;
+            while not sqrecorrer.Eof do
+            begin
+              serv_farmapatria.guia_detalle_desc(cod_seguridad, StrToInt(guia_farmapatria),
+                sqrecorrer.FieldByName('OM_MOLECULA').AsString,
+                sqrecorrer.FieldByName('OM_LOTE').AsString, 0,
+                sqrecorrer.FieldByName('OM_CANT').AsInteger,
+                sqrecorrer.FieldByName('OM_MOLECULA').AsString);
+              sqrecorrer.Next;
+            end;
+          end;
+
+          serv_farmapatria.guia_validar(cod_seguridad, StrToInt(guia_farmapatria));
+          ShowMessage('Se ha Creado la Guia Nro: ' + guia_farmapatria);
+          url_guia := 'http://www.sicm.gob.ve/g_4cguia.php?id_guia=' + guia_farmapatria;
+          ShellExecute(0, 'open', PChar(url_guia), '', '', SW_SHOWNORMAL);
+
+        except
+          On E: Exception do
+          begin
+            showmessage('Error: ' + E.ClassName + ' ' + E.Message);
+          end;
+        end;
+      end
+      else
+      begin
+        ShowMessage('El Numero de Bultos debe ser un Numero Entero');
+        edtbultos.SetFocus;
+      end;
+    end;
+  end;
 end;
 
 procedure TFormVerificar.Button1Click(Sender: TObject);
 begin
-with sqProducto do
-begin
-  close;
-  ParamByname('pCodigo').AsString:=EdtCodigo.Text;
-  ParamByname('pDocumento').AsString:=labeldocumento.Caption;
-  ParamByname('pTipo').Asinteger:=11;
-  open;
-  if sqproducto.IsEmpty then
-   begin
-     labelAlerta.Caption:='NO EXISTE';
-     labcantidad.Visible:=false;
-     labArticulo.Visible:=false;
-     labelcantidad.Visible:=false;
-     labelProducto.Caption:='';
-
-   end
-   else
-   begin
-     labcantidad.Visible:=true;
-     labArticulo.Visible:=true;
-     labelcantidad.Visible:=true;
-     labelcantidad.caption:=sqproducto.FieldByName('FDI_CANTIDAD').AsString;
-     labelProducto.Caption:=sqproducto.FieldByName('FI_DESCRIPCION').AsString;
-     timer1.enabled:=true;
-   end;
-end;
+  with sqProducto do
+  begin
+    close;
+    ParamByname('pCodigo').AsString := EdtCodigo.Text;
+    ParamByname('pDocumento').AsString := labeldocumento.Caption;
+    ParamByname('pTipo').Asinteger := 11;
+    open;
+    if sqproducto.IsEmpty then
+    begin
+      labelAlerta.Caption := 'NO EXISTE';
+      labcantidad.Visible := false;
+      labArticulo.Visible := false;
+      labelcantidad.Visible := false;
+      labelProducto.Caption := '';
+    end
+    else
+    begin
+      labcantidad.Visible := true;
+      labArticulo.Visible := true;
+      labelcantidad.Visible := true;
+      labelcantidad.caption := sqproducto.FieldByName('FDI_CANTIDAD').AsString;
+      labelProducto.Caption := sqproducto.FieldByName('FI_DESCRIPCION').AsString;
+      timer1.enabled := true;
+    end;
+  end;
 end;
 
 procedure TFormVerificar.edtbultosExit(Sender: TObject);
 begin
-   case accion of
-   1:begin
-     if edtbultos.Text = '' then
-     begin
-       ShowMessage('Debe Indicar la Canntidad de Bultos');
-       edtbultos.SetFocus;
-     end
-     else
-     if edtbultos.Text = '0' then
-     begin
-       ShowMessage('La Cantidad de Bultos debe ser mayor a 0');
-     end;
-   end;
-   end;
-
+  case accion of
+    1: begin
+      if edtbultos.Text = '' then
+      begin
+        ShowMessage('Debe Indicar la Cantidad de Bultos');
+        edtbultos.SetFocus;
+      end
+      else if edtbultos.Text = '0' then
+      begin
+        ShowMessage('La Cantidad de Bultos debe ser mayor a 0');
+      end;
+    end;
+  end;
 end;
 
 procedure TFormVerificar.edtCodigoClick(Sender: TObject);
 begin
-labelAlerta.Caption:='';
-labelProducto.Caption:='';
-labcantidad.Visible:=false;
-     labArticulo.Visible:=false;
-     labelcantidad.Visible:=false;
-     edtCodigo.Clear;
-//Timer1.Enabled:=False;
-
+  labelAlerta.Caption := '';
+  labelProducto.Caption := '';
+  labcantidad.Visible := false;
+  labArticulo.Visible := false;
+  labelcantidad.Visible := false;
+  edtCodigo.Clear;
 end;
 
 procedure TFormVerificar.edtCodigoExit(Sender: TObject);
+var
+  CodigoReal: string;  // ⭐ NUEVA VARIABLE
 begin
-if edtCodigo.Text <> '' then
+  if edtCodigo.Text <> '' then
   begin
-    with sqProducto do
-begin
-  close;
-  ParamByname('pCodigo').AsString:=EdtCodigo.Text;
-  ParamByname('pDocumento').AsString:=labeldocumento.Caption;
-  ParamByname('pTipo').Asinteger:=11;
-  open;
-  if sqproducto.IsEmpty then
-   begin
-     labelAlerta.Caption:='NO EXISTE';
-     labcantidad.Visible:=false;
-     labArticulo.Visible:=false;
-     labelcantidad.Visible:=false;
-     timer1.enabled:=true;
-   end
-   else
-   begin
-     labelcantidad.caption:=sqproducto.FieldByName('FDI_CANTIDAD').AsString;
-     labelProducto.Caption:=sqproducto.FieldByName('FI_DESCRIPCION').AsString;
-     timer1.enabled:=true;
-       with sqcantidadp do
-       begin
-       Close;
-       ParamByName('pCodigo').AsString:=EdtCodigo.Text;
-       Open;
-       canttemp:=sqcantidadp.FieldByName('OM_CANTPENDIENTE').AsCurrency;
-       end;
+    with sqProduct do
+    begin
+      close;
+      ParamByname('pCodigo').AsString := UpperCase(EdtCodigo.Text);
+      ParamByname('pDocumento').AsString := labeldocumento.Caption;
+      ParamByname('pTipo').Asinteger := 11;
+      open;
 
-          if canttemp >= 1 then
+      if sqproducto.IsEmpty then
+      begin
+        labelAlerta.Caption := 'NO EXISTE';
+        labcantidad.Visible := false;
+        labArticulo.Visible := false;
+        labelcantidad.Visible := false;
+        timer1.enabled := true;
+      end
+      else
+      begin
+        // ⭐ CAPTURAR EL CÓDIGO REAL DEL PRODUCTO
+        CodigoReal := sqProduct.FieldByName('FDI_CODIGO').AsString;
+
+        labelcantidad.caption := sqproduct.FieldByName('FDI_CANTIDAD').AsString;
+        labelProducto.Caption := sqproduct.FieldByName('FI_DESCRIPCION').AsString;
+        timer1.enabled := true;
+
+        // ⭐ USAR EL CÓDIGO REAL EN LA CONSULTA DE CANTIDAD PENDIENTE
+        with sqcantidadp do
+        begin
+          Close;
+          ParamByName('pCodigo').AsString := CodigoReal;  // ⭐ Usar código real
+          Open;
+          canttemp := sqcantidadp.FieldByName('OM_CANTPENDIENTE').AsCurrency;
+        end;
+
+        if canttemp >= 1 then
+        begin
+          // ⭐ USAR EL CÓDIGO REAL EN EL UPDATE
+          with squpdate do
           begin
-            with squpdate do
-            begin
-              Close;
-              ParamByName('pCant').AsCurrency:=canttemp;
-              ParamByName('pCodigo').AsString:=EdtCodigo.Text;
-              ExecSQL;
-            end;
-          cantidaddespachada:=cantidaddespachada + 1;
-          end
-          else
-          begin
-            ShowMessage('La Cantidad Despachada Supera la Cantidad Pedida');
+            Close;
+            ParamByName('pCant').AsCurrency := canttemp;
+            ParamByName('pCodigo').AsString := CodigoReal;  // ⭐ Usar código real
+            ExecSQL;
           end;
+          cantidaddespachada := cantidaddespachada + 1;
+        end
+        else
+        begin
+          ShowMessage('La Cantidad Despachada Supera la Cantidad Pedida o No existe en el Documento');
+        end;
+      end;
 
-
-
-   end;
-    with sqtmporden do
+      with sqtmporden do
       begin
         Close;
-        ParamByName('pdocumento').AsString:=documento;
+        ParamByName('pdocumento').AsString := documento;
         Open;
       end;
+
       with sqcantidad do
       begin
-         Close;
-        ParamByName('pdocumento').AsString:=documento;
+        Close;
+        ParamByName('pdocumento').AsString := documento;
         Open;
-        cantidad:=sqcantidad.FieldByName('CANTIDAD').AsCurrency;
+        cantidad := sqcantidad.FieldByName('CANTIDAD').AsCurrency;
       end;
-lblCNTV.Caption:=CurrToStr(cantidaddespachada);
-cantidadpendiente:=cantidad - cantidaddespachada;
-lblDIF.Caption:=CurrToStr(cantidadpendiente);
-EdtCodigo.SetFocus;
-end;
+
+      lblCNTV.Caption := CurrToStr(cantidaddespachada);
+      cantidadpendiente := cantidad - cantidaddespachada;
+      lblDIF.Caption := CurrToStr(cantidadpendiente);
+      EdtCodigo.SetFocus;
+    end;
   end;
 end;
 
 procedure TFormVerificar.edtCodigoKeyPress(Sender: TObject; var Key: Char);
 begin
-Timer1.Enabled:=True;
-
+  Timer1.Enabled := True;
 end;
 
 procedure TFormVerificar.FormClose(Sender: TObject; var Action: TCloseAction);
 begin
   with sqborrar do
-      begin
-        Close;
-        ParamByName('pdocumento').AsString:=documento;
-        ExecSQL;
-      end;
+  begin
+    Close;
+    ParamByName('pdocumento').AsString := documento;
+    ExecSQL;
+  end;
 end;
 
 procedure TFormVerificar.FormShow(Sender: TObject);
 var
-cant_pendiente,
-cant_actual:Currency;
+  cant_pendiente,
+  cant_actual: Currency;
 begin
-// edtCodigo.ReadOnly:=True;
-cantidaddespachada:=0;
-cod_seguridad:='56ptNLPLZuTNIGOFs019FQhhWd6KCNIQf1z1N9QYgOU2z/OxmNsO4/rfup+uxpUQWTyLmLiW4b7gMed7VzyQJk';
+  cantidaddespachada := 0;
+  cod_seguridad := '56ptNLPLZuTNIGOFs019FQhhWd6KCNIQf1z1N9QYgOU2z/OxmNsO4/rfup+uxpUQWTyLmLiW4b7gMed7VzyQJk';
 
- case accion of
- 0: begin
-      Caption:='VERIFICAR DOCUMENTO '+documento;
-      labelAlerta.Caption:='';
-      lblCNTV.Caption:='0';
-      lblCNTP.Caption:='0';
-      lblDIF.Caption:='0';
-      labelProducto.Caption:='';
-      labcantidad.Visible:=false;
-      labArticulo.Visible:=false;
-      labelcantidad.Visible:=false;
-      edtCodigo.Visible:=True;
-      lblbultos.Visible:=true;
-      edtbultos.Visible:=True;
+  case accion of
+    0: begin
+      Caption := 'VERIFICAR DOCUMENTO ' + documento;
+      labelAlerta.Caption := '';
+      lblCNTV.Caption := '0';
+      lblCNTP.Caption := '0';
+      lblDIF.Caption := '0';
+      labelProducto.Caption := '';
+      labcantidad.Visible := false;
+      labArticulo.Visible := false;
+      labelcantidad.Visible := false;
+      edtCodigo.Visible := True;
+      lblbultos.Visible := false;
+      edtbultos.Visible := false;
+      edtCelular.Text := celular;
+
       with sqorden do
+      begin
+        close;
+        ParamByname('pDocumento').AsString := documento;
+        ParamByname('pTipo').Asinteger := 11;
+        ParamByName('pnroregistro').AsInteger := nroregistro;
+        open;
+      end;
+
+      with sqProducto do
+      begin
+        close;
+        ParamByname('pDocumento').AsString := documento;
+        ParamByname('pTipo').Asinteger := 11;
+        ParamByName('pOperacion').Asinteger:=operacion;
+        open;
+      end;
+      sqborrar1.ExecSQL;
+      if not sqorden.IsEmpty then
+      begin
+        sqorden.First;
+        while not sqorden.Eof do
         begin
-          close;
-          ParamByname('pDocumento').AsString:=documento;
-          ParamByname('pTipo').Asinteger:=11;
-           ParamByName('pnroregistro').AsInteger:=nroregistro;
-          open;
+          cant_pendiente := sqorden.FieldByName('FDI_CANTIDADPENDIENTE').AsCurrency;
+          cant_actual := sqorden.FieldByName('FDI_CANTIDAD').AsCurrency;
+          if cant_pendiente > cant_actual then
+          begin
+            cant_pendiente := cant_actual;
+          end;
+
+          tdetorden.Close;
+          tdetorden.Open;
+          tdetorden.Insert;
+          tdetorden.Append;
+          tdetorden.FieldByName('OM_CODIGO').AsString := sqorden.FieldByName('FDI_CODIGO').AsString;
+          tdetorden.FieldByName('OM_DESCRIPCION').AsString := sqorden.FieldByName('FI_DESCRIPCION').AsString;
+          tdetorden.FieldByName('OM_CANT').AsString := sqorden.FieldByName('FDI_CANTIDAD').AsString;
+          tdetorden.FieldByName('OM_CANTPENDIENTE').AsCurrency := cant_pendiente;
+          tdetorden.FieldByName('OM_LOTE').AsString := sqorden.FieldByName('FDI_LOTE').AsString;
+          tdetorden.FieldByName('OM_DOCUMENTO').AsString := documento;
+          tdetorden.FieldByName('OM_MOLECULA').AsString := sqorden.FieldByName('FI_DESCRIPCIONDETALLADA').AsString;
+          tdetorden.Post;
+          sqorden.Next;
         end;
-if not sqorden.IsEmpty then
-begin
-    sqorden.First;
-    while not sqorden.Eof do
-      begin
-        cant_pendiente:=sqorden.FieldByName('FDI_CANTIDADPENDIENTE').AsCurrency;
-        cant_actual:=sqorden.FieldByName('FDI_CANTIDAD').AsCurrency;
-        if cant_pendiente > cant_actual then
+
+        with sqtmporden do
         begin
-          cant_pendiente:= cant_actual;
+          Close;
+          ParamByName('pdocumento').AsString := documento;
+          Open;
         end;
-        tdetorden.Close;
-        tdetorden.Open;
-        tdetorden.Insert;
-        tdetorden.Append;
-        tdetorden.FieldByName('OM_CODIGO').AsString:=sqorden.FieldByName('FDI_CODIGO').AsString;
-        tdetorden.FieldByName('OM_DESCRIPCION').AsString:=sqorden.FieldByName('FI_DESCRIPCIONDETALLADA').AsString;
-        tdetorden.FieldByName('OM_CANT').AsString:=sqorden.FieldByName('FDI_CANTIDAD').AsString;
-        tdetorden.FieldByName('OM_CANTPENDIENTE').AsCurrency:=cant_pendiente;
-        tdetorden.FieldByName('OM_LOTE').AsString:=sqorden.FieldByName('FDI_LOTE').AsString;
-        tdetorden.FieldByName('OM_DOCUMENTO').AsString:=documento;
-        tdetorden.FieldByName('OM_MOLECULA').AsString:=sqorden.FieldByName('FI_DESCRIPCIONDETALLADA').AsString;
-        tdetorden.Post;
-        sqorden.Next;
-      end;
-      with sqtmporden do
+
+        with sqcantidad do
+        begin
+          Close;
+          ParamByName('pdocumento').AsString := documento;
+          Open;
+          cantidad := sqcantidad.FieldByName('CANTIDAD').AsCurrency;
+        end;
+      end
+      else
       begin
-        Close;
-        ParamByName('pdocumento').AsString:=documento;
-        Open;
+        ShowMessage('ESTA FACTURA NO TIENE DETALLE');
       end;
-      with sqcantidad do
-      begin
-         Close;
-        ParamByName('pdocumento').AsString:=documento;
-        Open;
-        cantidad:=sqcantidad.FieldByName('CANTIDAD').AsCurrency;
-      end;
-end
-else
-begin
-  ShowMessage('ESTA FACTURA NO TIENE DETALLE');
-end;
-cantidadpendiente:=cantidad - cantidaddespachada;
-lblCNTP.Caption:=CurrToStr(cantidad);
-lblDIF.Caption:=CurrToStr(cantidadpendiente);
-      rgOpcion.ItemIndex:=accion;
+
+      cantidadpendiente := cantidad - cantidaddespachada;
+      lblCNTP.Caption := CurrToStr(cantidad);
+      lblDIF.Caption := CurrToStr(cantidadpendiente);
+      rgOpcion.ItemIndex := accion;
       edtCodigo.SetFocus;
+    end;
 
- end;
- 1: begin
-      Caption:='GENERAR GUIA FARMAPATRIA AL DOCUMENTO '+documento;
-      labelAlerta.Caption:='';
-      lblCNTV.Caption:='0';
-      lblCNTP.Caption:='0';
-      lblDIF.Caption:='0';
-      labelProducto.Caption:='';
-      labcantidad.Visible:=false;
-      labArticulo.Visible:=false;
-      labelcantidad.Visible:=false;
+    1: begin
+      Caption := 'GENERAR GUIA FARMAPATRIA AL DOCUMENTO ' + documento;
+      labelAlerta.Caption := '';
+      lblCNTV.Caption := '0';
+      lblCNTP.Caption := '0';
+      lblDIF.Caption := '0';
+      labelProducto.Caption := '';
+      labcantidad.Visible := false;
+      labArticulo.Visible := false;
+      labelcantidad.Visible := false;
+      LabCantidad.Visible := False;
+      lbl2.Visible := false;
+      lblCNTV.Visible := False;
+      lblbultos.Visible := false;
+      edtbultos.Visible := false;
+      edtCodigo.Enabled := False;
 
-      LabCantidad.Visible:=False;
-      lbl2.Visible:=false;
-      lblCNTV.Visible:=False;
-      lblbultos.Visible:=True;
-      edtbultos.Visible:=True;
-      edtCodigo.Enabled:=False;
       with sqorden do
-begin
-  close;
-  ParamByname('pDocumento').AsString:=documento;
-  ParamByname('pTipo').Asinteger:=11;
-   ParamByName('pnroregistro').AsInteger:=nroregistro;
-  open;
-end;
-if not sqorden.IsEmpty then
-begin
-    sqorden.First;
-    while not sqorden.Eof do
       begin
-        cant_pendiente:=sqorden.FieldByName('FDI_CANTIDADPENDIENTE').AsCurrency;
-        cant_actual:=sqorden.FieldByName('FDI_CANTIDAD').AsCurrency;
-        if cant_pendiente > cant_actual then
+        close;
+        ParamByname('pDocumento').AsString := documento;
+        ParamByname('pTipo').Asinteger := 11;
+        ParamByName('pnroregistro').AsInteger := nroregistro;
+        open;
+      end;
+
+      if not sqorden.IsEmpty then
+      begin
+        sqorden.First;
+        while not sqorden.Eof do
         begin
-          cant_pendiente:= cant_actual;
+          cant_pendiente := sqorden.FieldByName('FDI_CANTIDADPENDIENTE').AsCurrency;
+          cant_actual := sqorden.FieldByName('FDI_CANTIDAD').AsCurrency;
+          if cant_pendiente > cant_actual then
+          begin
+            cant_pendiente := cant_actual;
+          end;
+
+          tdetorden.Close;
+          tdetorden.Open;
+          tdetorden.Insert;
+          tdetorden.Append;
+          tdetorden.FieldByName('OM_CODIGO').AsString := sqorden.FieldByName('FDI_CODIGO').AsString;
+          tdetorden.FieldByName('OM_DESCRIPCION').AsString := sqorden.FieldByName('FI_DESCRIPCION').AsString;
+          tdetorden.FieldByName('OM_CANT').AsString := sqorden.FieldByName('FDI_CANTIDAD').AsString;
+          tdetorden.FieldByName('OM_CANTPENDIENTE').AsCurrency := cant_pendiente;
+          tdetorden.FieldByName('OM_LOTE').AsString := sqorden.FieldByName('FDI_LOTE').AsString;
+          tdetorden.FieldByName('OM_DOCUMENTO').AsString := documento;
+          tdetorden.FieldByName('OM_MOLECULA').AsString := sqorden.FieldByName('FI_DESCRIPCIONDETALLADA').AsString;
+          tdetorden.Post;
+          sqorden.Next;
         end;
-        tdetorden.Close;
-        tdetorden.Open;
-        tdetorden.Insert;
-        tdetorden.Append;
-        tdetorden.FieldByName('OM_CODIGO').AsString:=sqorden.FieldByName('FDI_CODIGO').AsString;
-        tdetorden.FieldByName('OM_DESCRIPCION').AsString:=sqorden.FieldByName('FI_DESCRIPCIONDETALLADA').AsString;
-        tdetorden.FieldByName('OM_CANT').AsString:=sqorden.FieldByName('FDI_CANTIDAD').AsString;
-        tdetorden.FieldByName('OM_CANTPENDIENTE').AsCurrency:=cant_pendiente;
-        tdetorden.FieldByName('OM_LOTE').AsString:=sqorden.FieldByName('FDI_LOTE').AsString;
-        tdetorden.FieldByName('OM_DOCUMENTO').AsString:=documento;
-        tdetorden.FieldByName('OM_MOLECULA').AsString:=sqorden.FieldByName('FI_DESCRIPCIONDETALLADA').AsString;
-        tdetorden.Post;
-        sqorden.Next;
-      end;
-      with sqtmporden do
+
+        with sqtmporden do
+        begin
+          Close;
+          ParamByName('pdocumento').AsString := documento;
+          Open;
+        end;
+
+        with sqcantidad do
+        begin
+          Close;
+          ParamByName('pdocumento').AsString := documento;
+          Open;
+          cantidad := sqcantidad.FieldByName('CANTIDAD').AsCurrency;
+        end;
+      end
+      else
       begin
-        Close;
-        ParamByName('pdocumento').AsString:=documento;
-        Open;
+        ShowMessage('ESTA FACTURA NO TIENE DETALLE');
       end;
-      with sqcantidad do
-      begin
-         Close;
-        ParamByName('pdocumento').AsString:=documento;
-        Open;
-        cantidad:=sqcantidad.FieldByName('CANTIDAD').AsCurrency;
-      end;
-end
-else
-begin
-  ShowMessage('ESTA FACTURA NO TIENE DETALLE');
-end;
-cantidadpendiente:=cantidad - cantidaddespachada;
-lblCNTP.Caption:=CurrToStr(cantidad);
-lblDIF.Caption:=CurrToStr(cantidadpendiente);
+
+      cantidadpendiente := cantidad - cantidaddespachada;
+      lblCNTP.Caption := CurrToStr(cantidad);
+      lblDIF.Caption := CurrToStr(cantidadpendiente);
       edtbultos.SetFocus;
-      rgOpcion.ItemIndex:=accion;
+      rgOpcion.ItemIndex := accion;
+    end;
+  end;
 
- end;
- end;
+  with sqvendedor do
+  begin
+    Close;
+    ParamByName('pVendedor').AsString := vendedor;
+    Open;
+  end;
 
-with sqvendedor do
-begin
-  Close;
-  ParamByName('pVendedor').AsString:=vendedor;
-  Open;
-
-end;
-
-cel_vendedor:= sqvendedor.FieldByName('FV_TELEFONOS').AsString;
-lblVendedor.Caption:=sqvendedor.FieldByName('FV_DESCRIPCION').AsString;
-
+  cel_vendedor := sqvendedor.FieldByName('FV_TELEFONOS').AsString;
+  lblVendedor.Caption := sqvendedor.FieldByName('FV_DESCRIPCION').AsString;
 end;
 
 procedure TFormVerificar.grid1DblClick(Sender: TObject);
 begin
-   if not MostrarFormularioClaveSupervisor(ClaveSupervisor) then
-      Exit; // Cancelar el proceso si se cancela el formulario
+  if not MostrarFormularioClaveSupervisor(ClaveSupervisor) then
+    Exit;
 
-    // Validar la clave del supervisor
-    if not ValidarClaveSupervisor(ClaveSupervisor) then
-    begin
-      MostrarMensajeError('Clave del supervisor incorrecta');
-      Exit; // Cancelar el proceso si la clave es incorrecta
-    end;
-    edtCodigo.Clear;
-    edtCodigo.SetFocus;
-    edtCodigo.Text:=sqtmporden.FieldByName('OM_CODIGO').AsString;
-    edtCodigoExit(self);
+  if not ValidarClaveSupervisor(ClaveSupervisor) then
+  begin
+    MostrarMensajeError('Clave del supervisor incorrecta');
+    Exit;
+  end;
+
+  edtCodigo.Clear;
+  edtCodigo.SetFocus;
+  edtCodigo.Text := sqtmporden.FieldByName('OM_CODIGO').AsString;
+  edtCodigoExit(self);
 end;
 
 procedure TFormVerificar.Timer1Timer(Sender: TObject);
 begin
-     labelAlerta.Caption:='';
-     labelProducto.Caption:='';
-     labcantidad.Visible:=false;
-     labArticulo.Visible:=false;
-     labelcantidad.Visible:=false;
-     edtCodigo.SetFocus;
-     edtCodigo.Clear;
-     Timer1.Enabled:=false;
+  labelAlerta.Caption := '';
+  labelProducto.Caption := '';
+  labcantidad.Visible := false;
+  labArticulo.Visible := false;
+  labelcantidad.Visible := false;
+  edtCodigo.SetFocus;
+  edtCodigo.Clear;
+  Timer1.Enabled := false;
 end;
 
 end.

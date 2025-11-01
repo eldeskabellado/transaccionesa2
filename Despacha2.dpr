@@ -1,4 +1,4 @@
-   program Despacha2;
+program Despacha2;
 
 uses
   Vcl.Forms,
@@ -40,26 +40,36 @@ uses
   UnitPedido in 'UnitPedido.pas' {formPedido},
   UnitLote in 'UnitLote.pas' {formLotes},
   UnitExportListas in 'UnitExportListas.pas' {formExport},
-  ConfigEncryption in '..\SharedUnits\ConfigEncryption.pas',
-  EvolutionConfigReader in '..\SharedUnits\EvolutionConfigReader.pas';
+  UnitAcercade in 'UnitAcercade.pas' {formConectar},
+  EvolutionAPI in 'Evolution\EvolutionAPI.pas',
+  EvolutionConfigReader in 'Evolution\EvolutionConfigReader.pas',
+  ConfigEncryption in 'Evolution\ConfigEncryption.pas',
+  UnitFormCXP in 'UnitFormCXP.pas' {formCXP};
 
 {$R *.res}
 
 begin
   Application.Initialize;
   Application.MainFormOnTaskbar := True;
-  Application.CreateForm(TForm2, Form2);
+
+  // Crear solo los componentes esenciales
   Application.CreateForm(Td, d);
-  Application.CreateForm(TformPedido, formPedido);
-  Application.CreateForm(TformLotes, formLotes);
-  Application.CreateForm(TformExport, formExport);
+  Application.CreateForm(TForm2, Form2);
+
+  // NO crear formCXP aquí - se creará cuando se necesite
+  // Application.CreateForm(TformCXP, formCXP);  // <-- ELIMINAR ESTA LÍNEA
+
+  // Mostrar formulario de acceso
   if TformAcceso.Execute then
   begin
+    // Login exitoso - mostrar formulario principal
+    Form2.Show;
     Application.Run;
   end
   else
   begin
-    D.Destroy;
+    // Login fallido - cerrar aplicación
+    D.Free;
     Application.Terminate;
   end;
 end.

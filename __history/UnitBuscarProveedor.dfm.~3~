@@ -1,0 +1,60 @@
+object Form3: TForm3
+  Left = 0
+  Top = 0
+  Caption = 'Form3'
+  ClientHeight = 335
+  ClientWidth = 455
+  Color = clWhite
+  Font.Charset = DEFAULT_CHARSET
+  Font.Color = clWindowText
+  Font.Height = -11
+  Font.Name = 'Tahoma'
+  Font.Style = []
+  OldCreateOrder = False
+  PixelsPerInch = 96
+  TextHeight = 13
+  object DBGrid1: TDBGrid
+    Left = 24
+    Top = 72
+    Width = 411
+    Height = 254
+    TabOrder = 0
+    TitleFont.Charset = DEFAULT_CHARSET
+    TitleFont.Color = clWindowText
+    TitleFont.Height = -11
+    TitleFont.Name = 'Tahoma'
+    TitleFont.Style = []
+  end
+  object edt1: TEdit
+    Left = 24
+    Top = 24
+    Width = 281
+    Height = 31
+    Font.Charset = DEFAULT_CHARSET
+    Font.Color = clWindowText
+    Font.Height = -19
+    Font.Name = 'Tahoma'
+    Font.Style = []
+    ParentFont = False
+    TabOrder = 1
+  end
+  object btn1: TButton
+    Left = 311
+    Top = 24
+    Width = 124
+    Height = 31
+    Caption = 'Buscar'
+    TabOrder = 2
+  end
+  object sqProveedor: TDBISAMQuery
+    EngineVersion = '4.49 Build 4'
+    Params = <>
+    Left = 312
+    Top = 208
+  end
+  object dsqProveedor: TDataSource
+    DataSet = sqProveedor
+    Left = 184
+    Top = 136
+  end
+end

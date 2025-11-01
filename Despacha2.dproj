@@ -173,38 +173,37 @@
         </DCCReference>
         <DCCReference Include="UnitFormProductos.pas">
             <Form>formArticulos</Form>
-            <FormType>dfm</FormType>
         </DCCReference>
         <DCCReference Include="UnitBuscarProductos.pas">
             <Form>formBuscarArticulo</Form>
-            <FormType>dfm</FormType>
         </DCCReference>
         <DCCReference Include="UnitPresentacion.pas">
             <Form>formPresentaciones</Form>
-            <FormType>dfm</FormType>
         </DCCReference>
         <DCCReference Include="UnitFactor.pas">
             <Form>formCambioTasa</Form>
-            <FormType>dfm</FormType>
         </DCCReference>
         <DCCReference Include="UnitImpresionCodebar.pas">
             <Form>formCodebar</Form>
-            <FormType>dfm</FormType>
         </DCCReference>
         <DCCReference Include="UnitPedido.pas">
             <Form>formPedido</Form>
-            <FormType>dfm</FormType>
         </DCCReference>
         <DCCReference Include="UnitLote.pas">
             <Form>formLotes</Form>
-            <FormType>dfm</FormType>
         </DCCReference>
         <DCCReference Include="UnitExportListas.pas">
             <Form>formExport</Form>
-            <FormType>dfm</FormType>
         </DCCReference>
-        <DCCReference Include="..\SharedUnits\ConfigEncryption.pas"/>
-        <DCCReference Include="..\SharedUnits\EvolutionConfigReader.pas"/>
+        <DCCReference Include="UnitAcercade.pas">
+            <Form>formConectar</Form>
+        </DCCReference>
+        <DCCReference Include="Evolution\EvolutionAPI.pas"/>
+        <DCCReference Include="Evolution\EvolutionConfigReader.pas"/>
+        <DCCReference Include="Evolution\ConfigEncryption.pas"/>
+        <DCCReference Include="UnitFormCXP.pas">
+            <Form>formCXP</Form>
+        </DCCReference>
         <BuildConfiguration Include="Release">
             <Key>Cfg_2</Key>
             <CfgParent>Base</CfgParent>

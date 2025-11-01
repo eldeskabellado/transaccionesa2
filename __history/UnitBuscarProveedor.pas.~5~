@@ -1,0 +1,165 @@
+unit UnitBuscarProveedor;
+
+interface
+
+uses
+  Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants, System.Classes,
+  Vcl.Graphics, Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Data.DB, Vcl.StdCtrls,
+  Vcl.Grids, Vcl.DBGrids, dbisamtb, UnitDatos;
+
+type
+  TformBuscarProveedor = class(TForm)
+    DBGridProveedores: TDBGrid;
+    EditBusqueda: TEdit;
+    ButtonBuscar: TButton;
+    sqProveedor: TDBISAMQuery;
+    DataSourceProveedor: TDataSource;
+    Label1: TLabel;
+    ButtonCancelar: TButton;
+    procedure FormCreate(Sender: TObject);
+    procedure ButtonBuscarClick(Sender: TObject);
+    procedure DBGridProveedoresDblClick(Sender: TObject);
+    procedure FormClose(Sender: TObject; var Action: TCloseAction);
+    procedure ButtonCancelarClick(Sender: TObject);
+    procedure EditBusquedaKeyPress(Sender: TObject; var Key: Char);
+  private
+    { Private declarations }
+    FCodigoProveedorSeleccionado: string;
+    FNombreProveedorSeleccionado: string;
+    procedure ConfigurarQuery;
+    procedure BuscarProveedores(const TextoBusqueda: string);
+    procedure SeleccionarProveedor;
+  public
+    { Public declarations }
+    property CodigoProveedorSeleccionado: string read FCodigoProveedorSeleccionado;
+    property NombreProveedorSeleccionado: string read FNombreProveedorSeleccionado;
+  end;
+
+var
+  formBuscarProveedor: TformBuscarProveedor;
+
+implementation
+
+{$R *.dfm}
+
+procedure TformBuscarProveedor.FormCreate(Sender: TObject);
+begin
+  // Inicializar propiedades
+  FCodigoProveedorSeleccionado := '';
+  FNombreProveedorSeleccionado := '';
+
+  // Configurar query de proveedores
+  ConfigurarQuery;
+
+  // Configurar DataSource
+  DataSourceProveedor.DataSet := sqProveedor;
+  DBGridProveedores.DataSource := DataSourceProveedor;
+
+  // Cargar todos los proveedores al inicio
+  BuscarProveedores('');
+
+  // Poner foco en el campo de búsqueda
+  if EditBusqueda.CanFocus then
+    EditBusqueda.SetFocus;
+end;
+
+procedure TformBuscarProveedor.ConfigurarQuery;
+begin
+  sqProveedor.DatabaseName := d.datprincipal.DatabaseName;
+  sqProveedor.SQL.Clear;
+  sqProveedor.SQL.Add('SELECT');
+  sqProveedor.SQL.Add('    FP_CODIGO,');
+  sqProveedor.SQL.Add('    FP_DESCRIPCION,');
+  sqProveedor.SQL.Add('    FP_DIRECCION1,');
+  sqProveedor.SQL.Add('    FP_TELEFONO,');
+  sqProveedor.SQL.Add('    FP_EMAIL,');
+  sqProveedor.SQL.Add('    FP_RIF');
+  sqProveedor.SQL.Add('FROM');
+  sqProveedor.SQL.Add('    Sproveedor');
+  sqProveedor.SQL.Add('WHERE');
+  sqProveedor.SQL.Add('    (FP_CODIGO LIKE :BUSQUEDA OR FP_DESCRIPCION LIKE :BUSQUEDA)');
+  sqProveedor.SQL.Add('ORDER BY FP_DESCRIPCION');
+end;
+
+procedure TformBuscarProveedor.BuscarProveedores(const TextoBusqueda: string);
+var
+  Criterio: string;
+begin
+  try
+    sqProveedor.Close;
+
+    if Trim(TextoBusqueda) = '' then
+      Criterio := '%'  // Mostrar todos
+    else
+      Criterio := '%' + Trim(TextoBusqueda) + '%';
+
+    sqProveedor.ParamByName('BUSQUEDA').AsString := Criterio;
+    sqProveedor.Open;
+
+    // Mensaje si no se encontraron resultados
+    if sqProveedor.IsEmpty then
+      ShowMessage('No se encontraron proveedores con ese criterio de búsqueda.');
+
+  except
+    on E: Exception do
+    begin
+      ShowMessage('Error al buscar proveedores: ' + E.Message);
+      sqProveedor.Close;
+    end;
+  end;
+end;
+
+procedure TformBuscarProveedor.ButtonBuscarClick(Sender: TObject);
+begin
+  BuscarProveedores(EditBusqueda.Text);
+end;
+
+procedure TformBuscarProveedor.EditBusquedaKeyPress(Sender: TObject; var Key: Char);
+begin
+  // Permitir buscar con Enter
+  if Key = #13 then
+  begin
+    Key := #0;
+    ButtonBuscar.Click;
+  end;
+end;
+
+procedure TformBuscarProveedor.DBGridProveedoresDblClick(Sender: TObject);
+begin
+  SeleccionarProveedor;
+end;
+
+procedure TformBuscarProveedor.SeleccionarProveedor;
+begin
+  if sqProveedor.IsEmpty then
+  begin
+    ShowMessage('No hay ningún proveedor seleccionado.');
+    Exit;
+  end;
+
+  try
+    // Recuperar datos del proveedor seleccionado
+    FCodigoProveedorSeleccionado := sqProveedor.FieldByName('FP_CODIGO').AsString;
+    FNombreProveedorSeleccionado := sqProveedor.FieldByName('FP_DESCRIPCION').AsString;
+
+    // Cerrar formulario con resultado OK
+    ModalResult := mrOK;
+  except
+    on E: Exception do
+    begin
+      ShowMessage('Error al seleccionar proveedor: ' + E.Message);
+    end;
+  end;
+end;
+
+procedure TformBuscarProveedor.ButtonCancelarClick(Sender: TObject);
+begin
+  ModalResult := mrCancel;
+end;
+
+procedure TformBuscarProveedor.FormClose(Sender: TObject; var Action: TCloseAction);
+begin
+  sqProveedor.Close;
+end;
+
+end.

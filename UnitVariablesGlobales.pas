@@ -12,6 +12,8 @@ var
   NombreEmpresa: string = 'DROGUERIA EL AMPARO, C.A.';
   CodigoProveedor: string = 'J500726856'; // RIF completo para proveedor
 
+
+
   // Configuración TP3
   RutaArchivosTP3: string = '';         // Se inicializa en runtime
   GenerandoArchivo: Boolean = False;    // Control de proceso en curso

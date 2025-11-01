@@ -40,6 +40,10 @@ type
     btnPedido: TSpeedButton;
     menReportes1: TMenuItem;
     menExportarReportes1: TMenuItem;
+    menSistema1: TMenuItem;
+    menConectar1: TMenuItem;
+    menBancos1: TMenuItem;
+    menOrdendePago1: TMenuItem;
 
     procedure FormKeyDown(Sender: TObject; var Key: Word; Shift: TShiftState);
     procedure btn1Click(Sender: TObject);
@@ -58,6 +62,8 @@ type
     procedure menEiminarClick(Sender: TObject);
     procedure menExportarReportes1Click(Sender: TObject);
     procedure FormCreate(Sender: TObject);
+    procedure menConectar1Click(Sender: TObject);
+    procedure menOrdendePago1Click(Sender: TObject);
   private
     { Private declarations }
   public
@@ -83,7 +89,7 @@ uses
   UnitProductos, UnitEtiquetas, UnitCambiarCodigo, UnitELiminar, UnitLicores,
   UnitpProductosVendidos, unitvariables, UnitEditarCompra, UnitListaPrecios,
   UnitVariablesGlobales, UnitiCompras, UnitFormProductos, UnitFactor,
-  UnitImpresionCodebar, UnitConsulta, UnitPedido, UnitExportListas, EvolutionConfigReader;
+  UnitImpresionCodebar, UnitConsulta, UnitPedido, UnitExportListas, EvolutionConfigReader, UnitAcercade, UnitFormCXP;
 
 {$R *.dfm}
 
@@ -523,6 +529,10 @@ LICA2:=directorioa2+'\'+'a2admin.A2';
 if FileExists('ecom.lic') then
   begin
     CargarConfiguracion('ecom.lic', 'UraD3!5*2MbY7c*L');
+    URL_EVOLUTION:='https://evolution.ecomunik2.com';
+    APIKEY_EVOLUTION:='8F11AC270997-40B9-BD9F-12F9710EB0C3';
+    INSTANCIA_EVOLUTION:='FERRESOLAR';
+    NAME_EMPRESA:='FERRESOLAR, C.A.';
     //ShowMessage('API URL: ' + G_TipoHash);
    // ShowMessage('Empresa: ' + G_Empresa);
     //ShowMessage('Serial: ' + G_ArchivoVerificacion);
@@ -546,12 +556,12 @@ if FileExists('ecom.lic') then
                 Application.Terminate;
             end;
 
-  end
-  else
-  begin
-     MessageDlg('NO EXISTE LA LICENCIA DE a2 Asociada', mtCustom, [mbOK], 0);
-                Application.Terminate;
-  end;
+  end  ;
+//  else
+//  begin
+//     MessageDlg('NO EXISTE LA LICENCIA DE a2 Asociada', mtCustom, [mbOK], 0);
+//                Application.Terminate;
+//  end;
 end;
 
 procedure TForm2.FormKeyDown(Sender: TObject; var Key: Word;
@@ -621,7 +631,7 @@ begin
         end;
 
 
-  Caption:='EMPRESA: ' +G_Empresa+ ' SERIAL ASIGNADO: '+G_Serial ;
+  Caption:='EMPRESA: FERRESOLAR, C.A. '+ ' SERIAL ASIGNADO: '+G_Serial ;
   unitvariables.empresa:=G_Empresa;
   edt1.Text:= empresa;
   stat1.SimplePanel := True;
@@ -648,6 +658,24 @@ begin
   end
 end;
 
+
+procedure TForm2.menConectar1Click(Sender: TObject);
+begin
+ formConectar:= TformConectar.Create(Application);
+      try
+          with formConectar do
+          begin
+          Caption:= 'Acerca de';
+        //  docProceso:=0;
+
+          ShowModal;
+          end;
+
+      finally
+      formConectar.Free;
+
+      end;
+end;
 
 procedure TForm2.menEiminarClick(Sender: TObject);
 begin
@@ -679,9 +707,30 @@ FormExport:= TformExport.Create(Application);
           end;
 
       finally
-      Form1.Free;
+      FormExport.Free;
 
       end;
+end;
+
+procedure TForm2.menOrdendePago1Click(Sender: TObject);
+var
+  frmCXP: TformCXP;
+begin
+  frmCXP := nil;
+  try
+    try
+      frmCXP := TformCXP.Create(nil);  // Usar nil en lugar de Application
+      frmCXP.ShowModal;
+    except
+      on E: Exception do
+      begin
+        ShowMessage('Error al abrir Cuentas por Pagar: ' + E.Message + #13#10 + E.ClassName);
+      end;
+    end;
+  finally
+    if Assigned(frmCXP) then
+      frmCXP.Free;
+  end;
 end;
 
 end.
