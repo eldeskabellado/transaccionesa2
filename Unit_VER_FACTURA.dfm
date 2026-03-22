@@ -2,8 +2,8 @@ object FormVerFactura: TFormVerFactura
   Left = 0
   Top = 0
   Caption = 'FormVerFactura'
-  ClientHeight = 357
-  ClientWidth = 490
+  ClientHeight = 617
+  ClientWidth = 715
   Color = clWhite
   Font.Charset = DEFAULT_CHARSET
   Font.Color = clWindowText
@@ -24,9 +24,9 @@ object FormVerFactura: TFormVerFactura
   end
   object DBGrid1: TDBGrid
     Left = 8
-    Top = 39
-    Width = 474
-    Height = 309
+    Top = 79
+    Width = 699
+    Height = 522
     DataSource = dsqfacturas
     TabOrder = 0
     TitleFont.Charset = DEFAULT_CHARSET
@@ -55,7 +55,7 @@ object FormVerFactura: TFormVerFactura
         FieldName = 'FTI_PERSONACONTACTO'
         Title.Alignment = taCenter
         Title.Caption = 'CLIENTE'
-        Width = 268
+        Width = 481
         Visible = True
       end>
   end
@@ -65,7 +65,7 @@ object FormVerFactura: TFormVerFactura
     Width = 186
     Height = 21
     Date = 45020.000000000000000000
-    Time = 0.347325833332433800
+    Time = 0.347325833332433900
     TabOrder = 1
   end
   object Button1: TButton
@@ -76,6 +76,37 @@ object FormVerFactura: TFormVerFactura
     Caption = 'Ver Pedidos'
     TabOrder = 2
     OnClick = Button1Click
+  end
+  object rgBusqueda: TRadioGroup
+    Left = 8
+    Top = 35
+    Width = 185
+    Height = 38
+    Caption = 'rgBusqueda'
+    Columns = 2
+    ItemIndex = 0
+    Items.Strings = (
+      'NOMBRE'
+      'DOCUMENTO')
+    TabOrder = 3
+    OnClick = rgBusquedaClick
+  end
+  object edtBusqueda: TEdit
+    Left = 199
+    Top = 48
+    Width = 418
+    Height = 25
+    TabOrder = 4
+    Text = 'edtBusqueda'
+  end
+  object btnBuscar: TButton
+    Left = 624
+    Top = 48
+    Width = 75
+    Height = 25
+    Caption = 'btnBuscar'
+    TabOrder = 5
+    OnClick = btnBuscarClick
   end
   object sqfacturas: TDBISAMQuery
     DatabaseName = 'data2'

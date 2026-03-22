@@ -1,0 +1,105 @@
+object Form1: TForm1
+  Left = 0
+  Top = 0
+  Caption = #195#8220'rdenes de Pago Pendientes'
+  ClientHeight = 855
+  ClientWidth = 1168
+  Color = clBtnFace
+  Font.Charset = DEFAULT_CHARSET
+  Font.Color = clWindowText
+  Font.Height = -11
+  Font.Name = 'Tahoma'
+  Font.Style = []
+  OldCreateOrder = False
+  Position = poMainFormCenter
+  OnClose = FormClose
+  OnCreate = FormCreate
+  PixelsPerInch = 96
+  TextHeight = 13
+  object DBGridOrdenPago: TDBGrid
+    Left = 8
+    Top = 72
+    Width = 1152
+    Height = 289
+    DataSource = dsqOrdenPago
+    TabOrder = 0
+    TitleFont.Charset = DEFAULT_CHARSET
+    TitleFont.Color = clWindowText
+    TitleFont.Height = -11
+    TitleFont.Name = 'Tahoma'
+    TitleFont.Style = []
+    OnDblClick = DBGridOrdenPagoDblClick
+  end
+  object DBGridOrdenPagoSeleccionada: TDBGrid
+    Left = 8
+    Top = 403
+    Width = 1152
+    Height = 382
+    DataSource = dsTMOrdenpagoSeleccionada
+    TabOrder = 1
+    TitleFont.Charset = DEFAULT_CHARSET
+    TitleFont.Color = clWindowText
+    TitleFont.Height = -11
+    TitleFont.Name = 'Tahoma'
+    TitleFont.Style = []
+  end
+  object btnCargarOrdenesPendientes: TButton
+    Left = 8
+    Top = 8
+    Width = 185
+    Height = 30
+    Caption = 'Cargar '#195#8220'rdenes Pendientes'
+    TabOrder = 2
+    OnClick = btnCargarOrdenesPendientesClick
+  end
+  object btnVerDetalle: TButton
+    Left = 8
+    Top = 367
+    Width = 120
+    Height = 30
+    Caption = 'Ver Detalle'
+    TabOrder = 3
+    OnClick = btnVerDetalleClick
+  end
+  object btnQuitarOrden: TButton
+    Left = 208
+    Top = 799
+    Width = 120
+    Height = 30
+    Caption = 'Quitar Orden'
+    TabOrder = 4
+    OnClick = btnQuitarOrdenClick
+  end
+  object btnProcesar: TButton
+    Left = 1040
+    Top = 791
+    Width = 120
+    Height = 30
+    Caption = 'Procesar'
+    TabOrder = 5
+    OnClick = btnProcesarClick
+  end
+  object sqCXP: TDBISAMQuery
+    DatabaseName = 'data2'
+    EngineVersion = '4.49 Build 4'
+    Params = <>
+    Left = 120
+    Top = 248
+  end
+  object dsqOrdenPago: TDataSource
+    DataSet = sqCXP
+    Left = 256
+    Top = 240
+  end
+  object dsTMOrdenpagoSeleccionada: TDataSource
+    DataSet = cdsOrdenesSeleccionadas
+    Left = 272
+    Top = 520
+  end
+  object cdsOrdenesSeleccionadas: TClientDataSet
+    Aggregates = <>
+    Params = <>
+    Left = 120
+    Top = 520
+  end
+end

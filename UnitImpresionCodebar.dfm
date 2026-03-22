@@ -2,7 +2,7 @@ object formCodebar: TformCodebar
   Left = 0
   Top = 0
   Caption = 'formCodebar'
-  ClientHeight = 115
+  ClientHeight = 220
   ClientWidth = 362
   Color = clWhite
   Font.Charset = DEFAULT_CHARSET
@@ -42,9 +42,49 @@ object formCodebar: TformCodebar
     Font.Style = [fsBold]
     ParentFont = False
   end
+  object lblCategoria: TLabel
+    Left = 40
+    Top = 40
+    Width = 73
+    Height = 13
+    Caption = 'Departamento:'
+  end
+  object cbbCategoria: TComboBox
+    Left = 40
+    Top = 56
+    Width = 280
+    Height = 21
+    Style = csDropDownList
+    TabOrder = 1
+    OnChange = cbbCategoriaChange
+  end
+  object lblSubcategoria: TLabel
+    Left = 40
+    Top = 88
+    Width = 69
+    Height = 13
+    Caption = 'Subcategor'#237'a:'
+  end
+  object cbbSubcategoria: TComboBox
+    Left = 40
+    Top = 104
+    Width = 280
+    Height = 21
+    Style = csDropDownList
+    TabOrder = 2
+    Enabled = False
+  end
+  object chkMostrarEtiqueta: TCheckBox
+    Left = 40
+    Top = 150
+    Width = 105
+    Height = 17
+    Caption = 'Mostrar Etiqueta'
+    TabOrder = 3
+  end
   object btn1: TButton
-    Left = 120
-    Top = 53
+    Left = 160
+    Top = 150
     Width = 169
     Height = 57
     Caption = 'Imprimir'
@@ -65,7 +105,7 @@ object formCodebar: TformCodebar
     Top = 230
   end
   object frpPresentaciones: TfrxReport
-    Version = '6.9.6'
+    Version = '6.9.15'
     DotMatrixReport = False
     IniFile = '\Software\Fast Reports'
     PreviewOptions.Buttons = [pbPrint, pbLoad, pbSave, pbExport, pbZoom, pbFind, pbOutline, pbPageSetup, pbTools, pbEdit, pbNavigator, pbExportQuick, pbCopy, pbSelection]
@@ -129,6 +169,10 @@ object formCodebar: TformCodebar
       OnBeforePrint = 'Page1OnBeforePrint'
       object ReportTitle1: TfrxReportTitle
         FillType = ftBrush
+        FillGap.Top = 0
+        FillGap.Left = 0
+        FillGap.Bottom = 0
+        FillGap.Right = 0
         Frame.Typ = []
         Height = 166.622140000000000000
         Top = 18.897650000000000000
@@ -227,6 +271,10 @@ object formCodebar: TformCodebar
       end
       object MasterData1: TfrxMasterData
         FillType = ftBrush
+        FillGap.Top = 0
+        FillGap.Left = 0
+        FillGap.Bottom = 0
+        FillGap.Right = 0
         Frame.Typ = []
         Height = 75.590600000000000000
         Top = 245.669450000000000000
@@ -292,6 +340,10 @@ object formCodebar: TformCodebar
       end
       object MasterData2: TfrxMasterData
         FillType = ftBrush
+        FillGap.Top = 0
+        FillGap.Left = 0
+        FillGap.Bottom = 0
+        FillGap.Right = 0
         Frame.Typ = []
         Height = 79.370130000000000000
         Top = 343.937230000000000000
@@ -356,7 +408,7 @@ object formCodebar: TformCodebar
     end
   end
   object frpInventario: TfrxReport
-    Version = '6.9.6'
+    Version = '6.9.15'
     DotMatrixReport = False
     IniFile = '\Software\Fast Reports'
     PreviewOptions.Buttons = [pbPrint, pbLoad, pbSave, pbExport, pbZoom, pbFind, pbOutline, pbPageSetup, pbTools, pbEdit, pbNavigator, pbExportQuick, pbCopy, pbSelection]
@@ -420,6 +472,10 @@ object formCodebar: TformCodebar
       OnBeforePrint = 'Page1OnBeforePrint'
       object ReportTitle1: TfrxReportTitle
         FillType = ftBrush
+        FillGap.Top = 0
+        FillGap.Left = 0
+        FillGap.Bottom = 0
+        FillGap.Right = 0
         Frame.Typ = []
         Height = 166.622140000000000000
         Top = 18.897650000000000000
@@ -519,6 +575,10 @@ object formCodebar: TformCodebar
       end
       object MasterData1: TfrxMasterData
         FillType = ftBrush
+        FillGap.Top = 0
+        FillGap.Left = 0
+        FillGap.Bottom = 0
+        FillGap.Right = 0
         Frame.Typ = []
         Height = 75.590600000000000000
         Top = 245.669450000000000000
@@ -583,6 +643,10 @@ object formCodebar: TformCodebar
       end
       object MasterData2: TfrxMasterData
         FillType = ftBrush
+        FillGap.Top = 0
+        FillGap.Left = 0
+        FillGap.Bottom = 0
+        FillGap.Right = 0
         Frame.Typ = []
         Height = 68.031540000000000000
         Top = 343.937230000000000000
@@ -690,9 +754,8 @@ object formCodebar: TformCodebar
     Top = 214
   end
   object SQDetEtiquetasPresentaciones1: TDBISAMQuery
-    Active = True
     DatabaseName = 'data2'
-    EngineVersion = '4.43 Build 1'
+    EngineVersion = '4.49 Build 4'
     SQL.Strings = (
       'SELECT FO_PRODUCTO, FO_DESCRIPCION, FO_UNDDESCARGA, '
       '       (FO_MTOTOTAL / 110.56) AS FO_MTOTOTAL '
@@ -703,9 +766,8 @@ object formCodebar: TformCodebar
     Top = 126
   end
   object SQPresentacion1: TDBISAMQuery
-    Active = True
     DatabaseName = 'data2'
-    EngineVersion = '4.43 Build 1'
+    EngineVersion = '4.49 Build 4'
     SQL.Strings = (
       'SELECT FO_PRODUCTO, FO_DESCRIPCION, FO_UNDDESCARGA, '
       '       (FO_MTOTOTAL / 110.56) AS FO_MTOTOTAL '
@@ -716,9 +778,8 @@ object formCodebar: TformCodebar
     Top = 126
   end
   object SQInventario1: TDBISAMQuery
-    Active = True
     DatabaseName = 'data2'
-    EngineVersion = '4.43 Build 1'
+    EngineVersion = '4.49 Build 4'
     SQL.Strings = (
       'SELECT I.FI_CODIGO, I.FI_DESCRIPCION, I.FI_STATUS, '
       '       I.FI_UNIDAD, I.FI_CAPACIDAD, C.FIC_P01PRECIOTOTALEXT '
@@ -732,9 +793,8 @@ object formCodebar: TformCodebar
     Top = 174
   end
   object SQDetalleetiquetaInventario1: TDBISAMQuery
-    Active = True
     DatabaseName = 'data2'
-    EngineVersion = '4.43 Build 1'
+    EngineVersion = '4.49 Build 4'
     SQL.Strings = (
       'SELECT I.FI_CODIGO, I.FI_DESCRIPCION, I.FI_STATUS, '
       '       I.FI_UNIDAD, I.FI_CAPACIDAD, C.FIC_P01PRECIOTOTALEXT '

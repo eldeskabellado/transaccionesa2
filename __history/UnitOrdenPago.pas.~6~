@@ -1,0 +1,144 @@
+unit UnitOrdenPago;
+
+interface
+
+uses
+  Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants, System.Classes, Vcl.Graphics,
+  Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Data.DB, dbisamtb, Vcl.Grids,
+  Vcl.DBGrids, Vcl.StdCtrls;
+
+type
+  TForm1 = class(TForm)
+    DBGridOrdenPago: TDBGrid;
+    sqCXP: TDBISAMQuery;
+    dsqOrdenPago: TDataSource;
+    DBGridOrdenPagoSeleccionada: TDBGrid;
+    dsTMOrdenpagoSeleccionada: TDataSource;
+    btnCargarOrdenesPendientes: TButton;
+    sqDetalle: TDBISAMQuery;
+    procedure btnCargarOrdenesPendientesClick(Sender: TObject);
+    procedure DBGridOrdenPagoCellClick(Column: TColumn);
+    procedure FormCreate(Sender: TObject);
+  private
+    { Private declarations }
+    procedure CargarOrdenesPagoPendientes;
+    procedure CargarDetalleOrdenPago(const ANumeroDoc: String);
+  public
+    { Public declarations }
+  end;
+
+var
+  Form1: TForm1;
+
+implementation
+
+uses
+  UnitDatos;
+
+{$R *.dfm}
+
+procedure TForm1.FormCreate(Sender: TObject);
+begin
+  // Configurar los DataSources
+  dsqOrdenPago.DataSet := sqCXP;
+  dsTMOrdenpagoSeleccionada.DataSet := sqDetalle;
+
+  // Cargar automáticamente al abrir el formulario
+  CargarOrdenesPagoPendientes;
+end;
+
+procedure TForm1.CargarOrdenesPagoPendientes;
+begin
+  try
+    sqCXP.Close;
+    sqCXP.SQL.Clear;
+    sqCXP.SQL.Text :=
+      'SELECT ' +
+      '  OP.FOP_DOCUMENTO, ' +
+      '  OP.FOP_FECHA, ' +
+      '  OP.FOP_HORA, ' +
+      '  OP.FOP_STATUS, ' +
+      '  OP.FOP_PROVEEDOR, ' +
+      '  OP.FOP_DESCRIPCION AS NOMBRE_PROVEEDOR, ' +
+      '  OP.FOP_DETALLE, ' +
+      '  OP.FOP_MONTO, ' +
+      '  OP.FOP_ELABORADO, ' +
+      '  OP.FOP_APROBADO, ' +
+      '  OP.FOP_USUARIO, ' +
+      '  OP.FOP_MACHINENAME, ' +
+      '  P.FP_DESCRIPCIONDETALLADA AS CUENTA_PAGAR, ' +
+      '  P.FP_EMAIL, ' +
+      '  P.FP_RIF, ' +
+      '  P.FP_TELEFONO, ' +
+      '  U.DESCRIPCION AS USUARIO_NOMBRE ' +
+      'FROM SordenesPago OP ' +
+      'LEFT JOIN Sproveedor P ON OP.FOP_PROVEEDOR = P.CODE ' +
+      'LEFT JOIN Susuario U ON OP.FOP_USUARIO = U.CODE ' +
+      'WHERE OP.FOP_STATUS = 4 ' +
+      'ORDER BY OP.FOP_FECHA DESC, OP.FOP_HORA DESC';
+
+    sqCXP.Open;
+
+    if sqCXP.RecordCount > 0 then
+    begin
+      ShowMessage(Format('Se encontraron %d órdenes de pago pendientes', [sqCXP.RecordCount]));
+      // Cargar el detalle de la primera orden
+      CargarDetalleOrdenPago(sqCXP.FieldByName('FOP_DOCUMENTO').AsString);
+    end
+    else
+    begin
+      ShowMessage('No hay órdenes de pago pendientes');
+      sqDetalle.Close;
+    end;
+
+  except
+    on E: Exception do
+    begin
+      ShowMessage('Error al cargar órdenes de pago: ' + E.Message);
+    end;
+  end;
+end;
+
+procedure TForm1.CargarDetalleOrdenPago(const ANumeroDoc: String);
+begin
+  if ANumeroDoc = '' then Exit;
+
+  try
+    sqDetalle.Close;
+    sqDetalle.SQL.Clear;
+    sqDetalle.SQL.Text :=
+      'SELECT ' +
+      '  FDO_CODIGO, ' +
+      '  FDO_NUMERODOC, ' +
+      '  FDO_DETALLEDOC, ' +
+      '  FDO_MONTOPAGO ' +
+      'FROM SOrdenPagoDetalle ' +
+      'WHERE FDO_NUMERODOC = :NUMERODOC ' +
+      'ORDER BY FDO_CODIGO';
+
+    sqDetalle.ParamByName('NUMERODOC').AsString := ANumeroDoc;
+    sqDetalle.Open;
+
+  except
+    on E: Exception do
+    begin
+      ShowMessage('Error al cargar detalle de orden de pago: ' + E.Message);
+    end;
+  end;
+end;
+
+procedure TForm1.btnCargarOrdenesPendientesClick(Sender: TObject);
+begin
+  CargarOrdenesPagoPendientes;
+end;
+
+procedure TForm1.DBGridOrdenPagoCellClick(Column: TColumn);
+begin
+  // Cuando se hace clic en una orden, cargar su detalle
+  if not sqCXP.IsEmpty then
+  begin
+    CargarDetalleOrdenPago(sqCXP.FieldByName('FOP_DOCUMENTO').AsString);
+  end;
+end;
+
+end.

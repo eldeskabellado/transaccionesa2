@@ -1,0 +1,114 @@
+unit UnitDetalleOrdenPago;
+
+interface
+
+uses
+  Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants, System.Classes,
+  Vcl.Graphics, Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Data.DB, dbisamtb,
+  Vcl.Grids, Vcl.DBGrids, Vcl.StdCtrls, Vcl.ExtCtrls;
+
+type
+  TFormDetalleOrdenPago = class(TForm)
+    Panel1: TPanel;
+    lblTitulo: TLabel;
+    DBGridDetalle: TDBGrid;
+    sqDetalle: TDBISAMQuery;
+    dsDetalle: TDataSource;
+    Panel2: TPanel;
+    btnCerrar: TButton;
+    lblTotal: TLabel;
+    procedure FormCreate(Sender: TObject);
+    procedure btnCerrarClick(Sender: TObject);
+    procedure sqDetalleAfterOpen(DataSet: TDataSet);
+  private
+    FNumeroDoc: String;
+    procedure CargarDetalle;
+    procedure CalcularTotal;
+  public
+    class procedure MostrarDetalle(const ANumeroDoc: String);
+  end;
+
+var
+  FormDetalleOrdenPago: TFormDetalleOrdenPago;
+
+implementation
+
+uses
+  UnitDatos;
+
+{$R *.dfm}
+
+class procedure TFormDetalleOrdenPago.MostrarDetalle(const ANumeroDoc: String);
+begin
+  FormDetalleOrdenPago := TFormDetalleOrdenPago.Create(Application);
+  try
+    FormDetalleOrdenPago.FNumeroDoc := ANumeroDoc;
+    FormDetalleOrdenPago.Caption := 'Detalle Orden de Pago: ' + ANumeroDoc;
+    FormDetalleOrdenPago.lblTitulo.Caption := 'Detalle de la Orden: ' + ANumeroDoc;
+    FormDetalleOrdenPago.CargarDetalle;
+    FormDetalleOrdenPago.ShowModal;
+  finally
+    FormDetalleOrdenPago.Free;
+  end;
+end;
+
+procedure TFormDetalleOrdenPago.FormCreate(Sender: TObject);
+begin
+  dsDetalle.DataSet := sqDetalle;
+  CargarDetalle;
+end;
+
+procedure TFormDetalleOrdenPago.CargarDetalle;
+begin
+  try
+    sqDetalle.Close;
+    sqDetalle.SQL.Clear;
+    sqDetalle.SQL.Text :=
+      'SELECT ' +
+      '  FDO_CODIGO, ' +
+      '  FDO_NUMERODOC, ' +
+      '  FDO_DETALLEDOC, ' +
+      '  FDO_MONTOPAGO ' +
+      'FROM SOrdenPagoDetalle ' +
+      'WHERE FDO_CODIGO = :NUMERODOC ' +
+      'ORDER BY FDO_CODIGO';
+
+    sqDetalle.ParamByName('NUMERODOC').AsString := FNumeroDoc;
+    sqDetalle.Open;
+
+  except
+    on E: Exception do
+      ShowMessage('Error al cargar detalle: ' + E.Message);
+  end;
+end;
+
+procedure TFormDetalleOrdenPago.sqDetalleAfterOpen(DataSet: TDataSet);
+begin
+  CalcularTotal;
+end;
+
+procedure TFormDetalleOrdenPago.CalcularTotal;
+var
+  Total: Double;
+begin
+  Total := 0;
+  if sqDetalle.Active and not sqDetalle.IsEmpty then
+  begin
+    sqDetalle.First;
+    while not sqDetalle.Eof do
+    begin
+      Total := Total + sqDetalle.FieldByName('FDO_MONTOPAGO').AsFloat;
+      sqDetalle.Next;
+    end;
+    sqDetalle.First;
+  end;
+
+  lblTotal.Caption := 'Total: ' + FormatFloat('#,##0.00', Total);
+end;
+
+procedure TFormDetalleOrdenPago.btnCerrarClick(Sender: TObject);
+begin
+  Close;
+end;
+
+end.

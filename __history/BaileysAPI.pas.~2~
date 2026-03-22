@@ -1,0 +1,407 @@
+unit BaileysAPI;
+
+interface
+
+uses
+  System.SysUtils, System.Classes, System.JSON, System.Net.HttpClient,
+  System.Net.URLClient;
+
+type
+  // Estructura de respuesta similar a Evolution
+  TBaileysResponse = record
+    Success: Boolean;
+    StatusCode: Integer;
+    Data: string;
+    Message: string;
+  end;
+
+  TBaileysAPI = class
+  private
+    FBaseURL: string;
+    FAPIKey: string;
+    FHttpClient: THTTPClient;
+    function DoRequest(const AMethod, AEndpoint: string; const ABody: string = ''): TBaileysResponse;
+    function GetAuthHeader: string;
+  public
+    constructor Create(const ABaseURL: string; const AAPIKey: string = '');
+    destructor Destroy; override;
+
+    // Métodos principales compatibles con Evolution
+    function GetQRCode: TBaileysResponse;
+    function GetInstanceStatus: TBaileysResponse;
+    function Logout: TBaileysResponse;
+
+    // Métodos de envío
+    function SendText(const APhone, AMessage: string): TBaileysResponse;
+    function SendImage(const APhone, AImagePath, ACaption: string): TBaileysResponse;
+    function SendDocument(const APhone, ADocPath, AFileName: string): TBaileysResponse;
+    function SendAudio(const APhone, AAudioPath: string): TBaileysResponse;
+
+    property BaseURL: string read FBaseURL write FBaseURL;
+    property APIKey: string read FAPIKey write FAPIKey;
+  end;
+
+implementation
+
+uses
+  System.NetEncoding;
+
+{ TBaileysAPI }
+
+constructor TBaileysAPI.Create(const ABaseURL: string; const AAPIKey: string = '');
+begin
+  inherited Create;
+
+  FBaseURL := ABaseURL;
+  FAPIKey := AAPIKey;
+
+  // Asegurar que la URL no termine con /
+  if (Length(FBaseURL) > 0) and (FBaseURL[Length(FBaseURL)] = '/') then
+    FBaseURL := Copy(FBaseURL, 1, Length(FBaseURL) - 1);
+
+  FHttpClient := THTTPClient.Create;
+  FHttpClient.ConnectionTimeout := 30000; // 30 segundos
+  FHttpClient.ResponseTimeout := 30000;
+end;
+
+destructor TBaileysAPI.Destroy;
+begin
+  if Assigned(FHttpClient) then
+    FHttpClient.Free;
+  inherited;
+end;
+
+function TBaileysAPI.GetAuthHeader: string;
+begin
+  if FAPIKey <> '' then
+    Result := 'Bearer ' + FAPIKey
+  else
+    Result := '';
+end;
+
+function TBaileysAPI.DoRequest(const AMethod, AEndpoint: string; const ABody: string = ''): TBaileysResponse;
+var
+  Response: IHTTPResponse;
+  URL: string;
+  StringStream: TStringStream;
+begin
+  // Inicializar respuesta
+  Result.Success := False;
+  Result.StatusCode := 0;
+  Result.Data := '';
+  Result.Message := '';
+
+  try
+    URL := FBaseURL + AEndpoint;
+
+    // Configurar headers
+    FHttpClient.CustomHeaders['Content-Type'] := 'application/json';
+    if FAPIKey <> '' then
+      FHttpClient.CustomHeaders['Authorization'] := GetAuthHeader;
+
+    // Realizar request según método
+    if AMethod = 'GET' then
+    begin
+      Response := FHttpClient.Get(URL);
+    end
+    else if AMethod = 'POST' then
+    begin
+      StringStream := TStringStream.Create(ABody, TEncoding.UTF8);
+      try
+        Response := FHttpClient.Post(URL, StringStream);
+      finally
+        StringStream.Free;
+      end;
+    end
+    else
+    begin
+      Result.Message := 'Método HTTP no soportado: ' + AMethod;
+      Exit;
+    end;
+
+    // Procesar respuesta
+    Result.StatusCode := Response.StatusCode;
+    Result.Data := Response.ContentAsString(TEncoding.UTF8);
+
+    // Considerar exitoso si el código es 2xx
+    Result.Success := (Response.StatusCode >= 200) and (Response.StatusCode < 300);
+
+    if not Result.Success then
+    begin
+      Result.Message := 'Error HTTP ' + IntToStr(Response.StatusCode);
+
+      // Intentar extraer mensaje de error del JSON
+      try
+        var JSONObj := TJSONObject.ParseJSONValue(Result.Data) as TJSONObject;
+        if Assigned(JSONObj) then
+        try
+          if JSONObj.TryGetValue<string>('error', Result.Message) then
+            // Ya tenemos el mensaje
+          else if JSONObj.TryGetValue<string>('message', Result.Message) then
+            // Ya tenemos el mensaje
+        finally
+          JSONObj.Free;
+        end;
+      except
+        // Si no es JSON válido, usar el mensaje por defecto
+      end;
+    end;
+
+  except
+    on E: Exception do
+    begin
+      Result.Success := False;
+      Result.Message := 'Error de conexión: ' + E.Message;
+      Result.Data := '';
+    end;
+  end;
+end;
+
+function TBaileysAPI.GetQRCode: TBaileysResponse;
+begin
+  Result := DoRequest('GET', '/session/qr');
+
+  if Result.Success then
+  begin
+    try
+      var JSONObj := TJSONObject.ParseJSONValue(Result.Data) as TJSONObject;
+      if Assigned(JSONObj) then
+      try
+        // Verificar si la respuesta tiene el formato correcto
+        var Success: Boolean;
+        if JSONObj.TryGetValue<Boolean>('success', Success) and Success then
+        begin
+          // El QR está en el campo 'qr'
+          var QRData: string;
+          if JSONObj.TryGetValue<string>('qr', QRData) then
+          begin
+            // Crear respuesta compatible
+            Result.Data := Format('{"qrcode": "%s"}', [QRData]);
+          end
+          else
+          begin
+            Result.Success := False;
+            Result.Message := 'QR no disponible en la respuesta';
+          end;
+        end
+        else
+        begin
+          Result.Success := False;
+          JSONObj.TryGetValue<string>('message', Result.Message);
+          if Result.Message = '' then
+            Result.Message := 'QR no disponible';
+        end;
+      finally
+        JSONObj.Free;
+      end;
+    except
+      on E: Exception do
+      begin
+        Result.Success := False;
+        Result.Message := 'Error al procesar QR: ' + E.Message;
+      end;
+    end;
+  end;
+end;
+
+function TBaileysAPI.GetInstanceStatus: TBaileysResponse;
+begin
+  Result := DoRequest('GET', '/session/status');
+
+  if Result.Success then
+  begin
+    try
+      var JSONObj := TJSONObject.ParseJSONValue(Result.Data) as TJSONObject;
+      if Assigned(JSONObj) then
+      try
+        // Transformar respuesta de Baileys a formato compatible con Evolution
+        // Baileys: { "status": "connected", "user": {...} }
+        // Evolution: { "instance": { "state": "open" } }
+
+        var Status: string;
+        var UserObj: TJSONObject;
+
+        if JSONObj.TryGetValue<string>('status', Status) then
+        begin
+          // Crear respuesta compatible
+          var CompatJSON := TJSONObject.Create;
+          try
+            var InstanceJSON := TJSONObject.Create;
+
+            // Mapear estados
+            if Status = 'connected' then
+              InstanceJSON.AddPair('state', 'open')
+            else
+              InstanceJSON.AddPair('state', 'close');
+
+            // Agregar información del usuario si existe
+            if JSONObj.TryGetValue<TJSONObject>('user', UserObj) then
+            begin
+              InstanceJSON.AddPair('wuid', UserObj.GetValue<string>('id'));
+              InstanceJSON.AddPair('profileName', UserObj.GetValue<string>('name'));
+            end;
+
+            CompatJSON.AddPair('instance', InstanceJSON);
+            Result.Data := CompatJSON.ToString;
+          finally
+            CompatJSON.Free;
+          end;
+        end;
+      finally
+        JSONObj.Free;
+      end;
+    except
+      on E: Exception do
+      begin
+        Result.Success := False;
+        Result.Message := 'Error al procesar estado: ' + E.Message;
+      end;
+    end;
+  end;
+end;
+
+function TBaileysAPI.Logout: TBaileysResponse;
+begin
+  Result := DoRequest('POST', '/session/logout');
+end;
+
+function TBaileysAPI.SendText(const APhone, AMessage: string): TBaileysResponse;
+var
+  JSONBody: TJSONObject;
+begin
+  JSONBody := TJSONObject.Create;
+  try
+    JSONBody.AddPair('phone', APhone);
+    JSONBody.AddPair('message', AMessage);
+
+    Result := DoRequest('POST', '/message/text', JSONBody.ToString);
+  finally
+    JSONBody.Free;
+  end;
+end;
+
+function TBaileysAPI.SendImage(const APhone, AImagePath, ACaption: string): TBaileysResponse;
+var
+  JSONBody: TJSONObject;
+  FileStream: TFileStream;
+  Base64: string;
+  Bytes: TBytes;
+begin
+  JSONBody := TJSONObject.Create;
+  try
+    // Leer archivo y convertir a base64
+    if not FileExists(AImagePath) then
+    begin
+      Result.Success := False;
+      Result.Message := 'Archivo no encontrado: ' + AImagePath;
+      Exit;
+    end;
+
+    FileStream := TFileStream.Create(AImagePath, fmOpenRead or fmShareDenyWrite);
+    try
+      SetLength(Bytes, FileStream.Size);
+      FileStream.ReadBuffer(Bytes[0], FileStream.Size);
+      Base64 := TNetEncoding.Base64.EncodeBytesToString(Bytes);
+    finally
+      FileStream.Free;
+    end;
+
+    // Agregar prefijo data URL
+    Base64 := 'data:image/' + LowerCase(ExtractFileExt(AImagePath).Replace('.', '')) + ';base64,' + Base64;
+
+    JSONBody.AddPair('phone', APhone);
+    JSONBody.AddPair('imageData', Base64);
+    if ACaption <> '' then
+      JSONBody.AddPair('caption', ACaption);
+
+    Result := DoRequest('POST', '/message/image', JSONBody.ToString);
+  finally
+    JSONBody.Free;
+  end;
+end;
+
+function TBaileysAPI.SendDocument(const APhone, ADocPath, AFileName: string): TBaileysResponse;
+var
+  JSONBody: TJSONObject;
+  FileStream: TFileStream;
+  Base64: string;
+  Bytes: TBytes;
+  FinalFileName: string;
+begin
+  JSONBody := TJSONObject.Create;
+  try
+    // Leer archivo
+    if not FileExists(ADocPath) then
+    begin
+      Result.Success := False;
+      Result.Message := 'Archivo no encontrado: ' + ADocPath;
+      Exit;
+    end;
+
+    FileStream := TFileStream.Create(ADocPath, fmOpenRead or fmShareDenyWrite);
+    try
+      SetLength(Bytes, FileStream.Size);
+      FileStream.ReadBuffer(Bytes[0], FileStream.Size);
+      Base64 := TNetEncoding.Base64.EncodeBytesToString(Bytes);
+    finally
+      FileStream.Free;
+    end;
+
+    // Determinar nombre del archivo
+    if AFileName <> '' then
+      FinalFileName := AFileName
+    else
+      FinalFileName := ExtractFileName(ADocPath);
+
+    // Agregar prefijo data URL
+    Base64 := 'data:application/pdf;base64,' + Base64;
+
+    JSONBody.AddPair('phone', APhone);
+    JSONBody.AddPair('documentData', Base64);
+    JSONBody.AddPair('fileName', FinalFileName);
+
+    Result := DoRequest('POST', '/message/doc', JSONBody.ToString);
+  finally
+    JSONBody.Free;
+  end;
+end;
+
+function TBaileysAPI.SendAudio(const APhone, AAudioPath: string): TBaileysResponse;
+var
+  JSONBody: TJSONObject;
+  FileStream: TFileStream;
+  Base64: string;
+  Bytes: TBytes;
+begin
+  JSONBody := TJSONObject.Create;
+  try
+    // Leer archivo
+    if not FileExists(AAudioPath) then
+    begin
+      Result.Success := False;
+      Result.Message := 'Archivo no encontrado: ' + AAudioPath;
+      Exit;
+    end;
+
+    FileStream := TFileStream.Create(AAudioPath, fmOpenRead or fmShareDenyWrite);
+    try
+      SetLength(Bytes, FileStream.Size);
+      FileStream.ReadBuffer(Bytes[0], FileStream.Size);
+      Base64 := TNetEncoding.Base64.EncodeBytesToString(Bytes);
+    finally
+      FileStream.Free;
+    end;
+
+    // Agregar prefijo data URL
+    Base64 := 'data:audio/ogg;base64,' + Base64;
+
+    JSONBody.AddPair('phone', APhone);
+    JSONBody.AddPair('audioData', Base64);
+
+    Result := DoRequest('POST', '/message/audio', JSONBody.ToString);
+  finally
+    JSONBody.Free;
+  end;
+end;
+
+end.

@@ -86,7 +86,7 @@
         <AppEnableRuntimeThemes>true</AppEnableRuntimeThemes>
         <DCC_RemoteDebug>false</DCC_RemoteDebug>
         <AppDPIAwarenessMode>PerMonitor</AppDPIAwarenessMode>
-        <DCC_ExeOutput>P:\Proyectos\transaccionesa2\Win32\Debug\</DCC_ExeOutput>
+        <DCC_ExeOutput>P:\IA CODE DELPHI\transaccionesa2\Win32\Debug\</DCC_ExeOutput>
     </PropertyGroup>
     <PropertyGroup Condition="'$(Cfg_2)'!=''">
         <DCC_LocalDebugSymbols>false</DCC_LocalDebugSymbols>
@@ -166,7 +166,7 @@
         <DCCReference Include="UnitListaPrecios.pas">
             <Form>FormLista</Form>
         </DCCReference>
-        <DCCReference Include="unitVariables.pas"/>
+        <DCCReference Include="unitvariables.pas"/>
         <DCCReference Include="UnitVariablesGlobales.pas"/>
         <DCCReference Include="UnitiCompras.pas">
             <Form>formiCompras</Form>
@@ -204,6 +204,16 @@
         <DCCReference Include="UnitFormCXP.pas">
             <Form>formCXP</Form>
         </DCCReference>
+        <DCCReference Include="UnitOrdenPago.pas">
+            <Form>Form1</Form>
+            <FormType>dfm</FormType>
+        </DCCReference>
+        <DCCReference Include="UnitDetalleOrdenPago.pas">
+            <Form>formDetalleOrdenPago</Form>
+            <FormType>dfm</FormType>
+        </DCCReference>
+        <DCCReference Include="UnitGeneradorArchivosBancarios.pas"/>
+        <DCCReference Include="BaileysAPI.pas"/>
         <BuildConfiguration Include="Release">
             <Key>Cfg_2</Key>
             <CfgParent>Base</CfgParent>

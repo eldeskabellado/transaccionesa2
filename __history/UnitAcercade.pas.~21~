@@ -1,0 +1,229 @@
+﻿unit UnitAcercade;
+
+interface
+
+uses
+  Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants,
+  System.Classes, Vcl.Graphics, Vcl.Controls, Vcl.Forms, Vcl.Dialogs,
+  Vcl.StdCtrls, Vcl.ExtCtrls, System.JSON, System.NetEncoding,
+  EvolutionAPI;  // ⭐ Usar directamente la clase
+
+type
+  TformConectar = class(TForm)
+    btnMostrarQR: TButton;
+    imgQR: TImage;
+    lblEstado: TLabel;
+    imgLogo: TImage;
+    lblEmpresa: TLabel;
+    lblEstado1: TLabel;
+    procedure btnMostrarQRClick(Sender: TObject);
+    procedure FormCreate(Sender: TObject);
+    procedure FormDestroy(Sender: TObject);
+    procedure FormShow(Sender: TObject);
+  private
+    FEvolutionAPI: TEvolutionAPI;
+    procedure ShowQRImage(const AQRData: string);
+  public
+    { Public declarations }
+  end;
+
+var
+  formConectar: TformConectar;
+
+implementation
+
+uses
+  unitVariables;
+
+{$R *.dfm}
+
+procedure TformConectar.ShowQRImage(const AQRData: string);
+var
+  JSONObj: TJSONObject;
+  QRValue: TJSONValue;
+  Base64Data: string;
+  ImageStream: TMemoryStream;
+  DecodedBytes: TBytes;
+  QRImageURL: string;
+begin
+  try
+    JSONObj := TJSONObject.ParseJSONValue(AQRData) as TJSONObject;
+    if Assigned(JSONObj) then
+    begin
+      try
+        // Buscar el campo del QR en múltiples posibles nombres
+        QRValue := JSONObj.FindValue('qrcode');
+        if not Assigned(QRValue) then QRValue := JSONObj.FindValue('qr');
+        if not Assigned(QRValue) then QRValue := JSONObj.FindValue('base64');
+        if not Assigned(QRValue) then QRValue := JSONObj.FindValue('data');
+        if not Assigned(QRValue) then QRValue := JSONObj.FindValue('image');
+        if not Assigned(QRValue) then QRValue := JSONObj.FindValue('code');
+
+        if Assigned(QRValue) then
+        begin
+          QRImageURL := QRValue.Value;
+
+          // Procesar base64
+          if (Pos('data:image', LowerCase(QRImageURL)) = 1) or
+             (Pos('base64,', QRImageURL) > 0) then
+          begin
+            // Extraer base64
+            if Pos('base64,', QRImageURL) > 0 then
+              Base64Data := Copy(QRImageURL, Pos('base64,', QRImageURL) + 7, Length(QRImageURL))
+            else
+              Base64Data := QRImageURL;
+
+            // Limpiar
+            Base64Data := StringReplace(Base64Data, #13, '', [rfReplaceAll]);
+            Base64Data := StringReplace(Base64Data, #10, '', [rfReplaceAll]);
+            Base64Data := StringReplace(Base64Data, ' ', '', [rfReplaceAll]);
+
+            try
+              // Decodificar
+              DecodedBytes := TNetEncoding.Base64.DecodeStringToBytes(Base64Data);
+
+              // Cargar en imagen
+              ImageStream := TMemoryStream.Create;
+              try
+                ImageStream.WriteBuffer(DecodedBytes[0], Length(DecodedBytes));
+                ImageStream.Position := 0;
+
+                imgQR.Picture.LoadFromStream(ImageStream);
+                imgQR.Stretch := True;
+                imgQR.Proportional := True;
+                imgQR.Visible := True;
+
+                lblEstado.Caption := '📱 Escanea el QR con WhatsApp';
+                lblEstado.Font.Color := clBlue;
+
+                ShowMessage('Código QR generado' + #13#10 +
+                           'Escanéalo con WhatsApp en tu celular');
+              finally
+                ImageStream.Free;
+              end;
+            except
+              on E: Exception do
+                ShowMessage('Error al decodificar: ' + E.Message);
+            end;
+          end
+          else
+          begin
+            ShowMessage('El QR no está en formato base64');
+          end;
+        end
+        else
+        begin
+          ShowMessage('No se encontró el código QR en la respuesta');
+        end;
+      finally
+        JSONObj.Free;
+      end;
+    end
+    else
+    begin
+      ShowMessage('La respuesta no es JSON válido');
+    end;
+  except
+    on E: Exception do
+      ShowMessage('Error: ' + E.Message);
+  end;
+end;
+
+procedure TformConectar.FormCreate(Sender: TObject);
+begin
+  imgQR.Visible := False;
+
+  // ⭐⭐⭐ CAMBIAR POR TUS DATOS REALES ⭐⭐⭐
+  FEvolutionAPI := TEvolutionAPI.Create(
+    URL_EVOLUTION,              // BaseURL
+    INSTANCIA_EVOLUTION,                                 // InstanceID
+    APIKEY_EVOLUTION         // APIKey
+  );
+
+  lblEstado.Caption := '✓ API Configurada';
+  lblEstado.Font.Color := clGreen;
+end;
+
+procedure TformConectar.FormDestroy(Sender: TObject);
+begin
+  if Assigned(FEvolutionAPI) then
+    FEvolutionAPI.Free;
+end;
+
+procedure TformConectar.FormShow(Sender: TObject);
+begin
+btnMostrarQRClick(Self);
+lblEmpresa.Caption:=NAME_EMPRESA;
+end;
+
+procedure TformConectar.btnMostrarQRClick(Sender: TObject);
+var
+  Response: TEvolutionResponse;
+  JSONObj, InstanceObj: TJSONObject;
+  State: string;
+begin
+  lblEstado.Caption := 'Verificando...';
+  lblEstado.Font.Color := clBlue;
+  Application.ProcessMessages;
+
+  try
+    // 1. Verificar si ya está conectado
+    Response := FEvolutionAPI.GetInstanceStatus;
+
+    if Response.Success then
+    begin
+      JSONObj := TJSONObject.ParseJSONValue(Response.Data) as TJSONObject;
+      if Assigned(JSONObj) then
+      try
+        InstanceObj := JSONObj.GetValue<TJSONObject>('instance');
+        if Assigned(InstanceObj) then
+        begin
+          State := InstanceObj.GetValue<string>('state');
+
+          if LowerCase(State) = 'open' then
+          begin
+            lblEstado.Caption := '✓ WhatsApp Conectado';
+            lblEstado.Font.Color := clGreen;
+            imgQR.Visible := False;
+            ShowMessage('WhatsApp ya está conectado.');
+            Exit;
+          end;
+        end;
+      finally
+        JSONObj.Free;
+      end;
+    end;
+
+    // 2. Si no está conectado, obtener QR
+    lblEstado.Caption := 'Generando QR...';
+    Application.ProcessMessages;
+
+    Response := FEvolutionAPI.GetQRCode;
+
+    if Response.Success then
+    begin
+      // Mostrar QR
+      imgQR.Visible := True;
+      ShowQRImage(Response.Data);
+
+      lblEstado.Caption := '📱 Escanea el QR';
+      lblEstado.Font.Color := clBlue;
+    end
+    else
+    begin
+      ShowMessage('Error obteniendo QR:' + #13#10 + Response.Message);
+      lblEstado.Caption := '✗ Error';
+      lblEstado.Font.Color := clRed;
+    end;
+
+  except
+    on E: Exception do
+    begin
+      ShowMessage('Error: ' + E.Message);
+      lblEstado.Caption := '✗ Error';
+      lblEstado.Font.Color := clRed;
+    end;
+  end;
+end;
+
+end.

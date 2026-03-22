@@ -1,0 +1,282 @@
+unit UnitOrdenPago;
+
+interface
+
+uses
+  Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants, System.Classes,
+  Vcl.Graphics, Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Data.DB, dbisamtb, Vcl.Grids,
+  Vcl.DBGrids, Vcl.StdCtrls, Datasnap.DBClient;
+
+type
+  TForm1 = class(TForm)
+    DBGridOrdenPago: TDBGrid;
+    sqCXP: TDBISAMQuery;
+    dsqOrdenPago: TDataSource;
+    DBGridOrdenPagoSeleccionada: TDBGrid;
+    dsTMOrdenpagoSeleccionada: TDataSource;
+    btnCargarOrdenesPendientes: TButton;
+    btnVerDetalle: TButton;
+    btnProcesar: TButton;
+    btnQuitarOrden: TButton;
+    cdsOrdenesSeleccionadas: TClientDataSet;
+    procedure btnCargarOrdenesPendientesClick(Sender: TObject);
+    procedure FormCreate(Sender: TObject);
+    procedure FormClose(Sender: TObject; var Action: TCloseAction);
+    procedure DBGridOrdenPagoDblClick(Sender: TObject);
+    procedure btnVerDetalleClick(Sender: TObject);
+    procedure btnQuitarOrdenClick(Sender: TObject);
+    procedure btnProcesarClick(Sender: TObject);
+  private
+    procedure CargarOrdenesPagoPendientes;
+    procedure AgregarOrdenAMemoria;
+    function ExisteOrdenEnMemoria(const ADocumento: String): Boolean;
+    procedure InicializarTablaMemoria;
+  public
+    class procedure MostrarFormulario;
+  end;
+
+var
+  Form1: TForm1;
+
+implementation
+
+uses
+  UnitDatos, UnitDetalleOrdenPago;
+
+{$R *.dfm}
+
+class procedure TForm1.MostrarFormulario;
+begin
+  if not Assigned(Form1) then
+    Form1 := TForm1.Create(Application);
+
+  Form1.Show;
+  Form1.BringToFront;
+end;
+
+procedure TForm1.FormCreate(Sender: TObject);
+begin
+  // Configurar los DataSources
+  dsqOrdenPago.DataSet := sqCXP;
+  dsTMOrdenpagoSeleccionada.DataSet := cdsOrdenesSeleccionadas;
+
+  // Inicializar tabla en memoria
+  InicializarTablaMemoria;
+
+  // Cargar automáticamente al abrir el formulario
+  CargarOrdenesPagoPendientes;
+end;
+
+procedure TForm1.FormClose(Sender: TObject; var Action: TCloseAction);
+begin
+  Action := caFree;
+  Form1 := nil;
+end;
+
+procedure TForm1.InicializarTablaMemoria;
+begin
+  // Cerrar si está activo
+  if cdsOrdenesSeleccionadas.Active then
+    cdsOrdenesSeleccionadas.Close;
+
+  // Limpiar definiciones anteriores
+  cdsOrdenesSeleccionadas.FieldDefs.Clear;
+
+  // Crear la estructura de la tabla en memoria
+  with cdsOrdenesSeleccionadas.FieldDefs do
+  begin
+    Add('FOP_DOCUMENTO', ftString, 20, True);
+    Add('FOP_FECHA', ftDateTime, 0, False);
+    Add('FOP_PROVEEDOR', ftString, 20, False);
+    Add('NOMBRE_PROVEEDOR', ftString, 100, False);
+    Add('FOP_MONTO', ftFloat, 0, False);
+    Add('CUENTA_PAGAR', ftString, 50, False);
+    Add('FP_RIF', ftString, 20, False);
+    Add('FP_TELEFONO', ftString, 20, False);
+    Add('FP_EMAIL', ftString, 100, False);
+  end;
+
+  // Crear el dataset
+  cdsOrdenesSeleccionadas.CreateDataSet;
+  cdsOrdenesSeleccionadas.LogChanges := False;
+end;
+
+procedure TForm1.CargarOrdenesPagoPendientes;
+begin
+  try
+    sqCXP.Close;
+    sqCXP.SQL.Clear;
+    sqCXP.SQL.Text :=
+      'SELECT ' +
+      '  OP.FOP_DOCUMENTO, ' +
+      '  OP.FOP_FECHA, ' +
+      '  OP.FOP_HORA, ' +
+      '  OP.FOP_STATUS, ' +
+      '  OP.FOP_PROVEEDOR, ' +
+      '  OP.FOP_DESCRIPCION AS NOMBRE_PROVEEDOR, ' +
+      '  OP.FOP_DETALLE, ' +
+      '  OP.FOP_MONTO, ' +
+      '  OP.FOP_ELABORADO, ' +
+      '  OP.FOP_APROBADO, ' +
+      '  OP.FOP_USUARIO, ' +
+      '  OP.FOP_MACHINENAME, ' +
+      '  P.FP_DESCRIPCIONDETALLADA AS CUENTA_PAGAR, ' +
+      '  P.FP_EMAIL, ' +
+      '  P.FP_RIF, ' +
+      '  P.FP_TELEFONO ' +
+      'FROM SOrdenesPago OP ' +
+      'LEFT JOIN Sproveedor P ON OP.FOP_PROVEEDOR = P."FP_CODIGO" ' +
+      'WHERE OP.FOP_STATUS = 4 ' +
+      'ORDER BY OP.FOP_FECHA DESC, OP.FOP_HORA DESC';
+
+    sqCXP.Open;
+
+    if sqCXP.RecordCount > 0 then
+      ShowMessage(Format('Se encontraron %d órdenes de pago pendientes', [sqCXP.RecordCount]))
+    else
+      ShowMessage('No hay órdenes de pago pendientes');
+
+  except
+    on E: Exception do
+      ShowMessage('Error al cargar órdenes de pago: ' + E.Message);
+  end;
+end;
+
+function TForm1.ExisteOrdenEnMemoria(const ADocumento: String): Boolean;
+begin
+  Result := False;
+  if cdsOrdenesSeleccionadas.Active then
+  begin
+    Result := cdsOrdenesSeleccionadas.Locate('FOP_DOCUMENTO', ADocumento, []);
+  end;
+end;
+
+procedure TForm1.AgregarOrdenAMemoria;
+var
+  Documento: String;
+begin
+  if sqCXP.IsEmpty then
+  begin
+    ShowMessage('No hay ninguna orden seleccionada');
+    Exit;
+  end;
+
+  Documento := sqCXP.FieldByName('FOP_DOCUMENTO').AsString;
+
+  // Validar si ya existe en la tabla en memoria
+  if ExisteOrdenEnMemoria(Documento) then
+  begin
+    ShowMessage('Esta orden ya fue agregada. No se puede agregar dos veces.');
+    Exit;
+  end;
+
+  try
+    // Agregar a la tabla en memoria
+    cdsOrdenesSeleccionadas.Append;
+    cdsOrdenesSeleccionadas.FieldByName('FOP_DOCUMENTO').AsString :=
+      sqCXP.FieldByName('FOP_DOCUMENTO').AsString;
+    cdsOrdenesSeleccionadas.FieldByName('FOP_FECHA').AsDateTime :=
+      sqCXP.FieldByName('FOP_FECHA').AsDateTime;
+    cdsOrdenesSeleccionadas.FieldByName('FOP_PROVEEDOR').AsString :=
+      sqCXP.FieldByName('FOP_PROVEEDOR').AsString;
+    cdsOrdenesSeleccionadas.FieldByName('NOMBRE_PROVEEDOR').AsString :=
+      sqCXP.FieldByName('NOMBRE_PROVEEDOR').AsString;
+    cdsOrdenesSeleccionadas.FieldByName('FOP_MONTO').AsFloat :=
+      sqCXP.FieldByName('FOP_MONTO').AsFloat;
+    cdsOrdenesSeleccionadas.FieldByName('CUENTA_PAGAR').AsString :=
+      sqCXP.FieldByName('CUENTA_PAGAR').AsString;
+    cdsOrdenesSeleccionadas.FieldByName('FP_RIF').AsString :=
+      sqCXP.FieldByName('FP_RIF').AsString;
+    cdsOrdenesSeleccionadas.FieldByName('FP_TELEFONO').AsString :=
+      sqCXP.FieldByName('FP_TELEFONO').AsString;
+    cdsOrdenesSeleccionadas.FieldByName('FP_EMAIL').AsString :=
+      sqCXP.FieldByName('FP_EMAIL').AsString;
+    cdsOrdenesSeleccionadas.Post;
+
+    ShowMessage('Orden agregada correctamente');
+  except
+    on E: Exception do
+    begin
+      cdsOrdenesSeleccionadas.Cancel;
+      ShowMessage('Error al agregar orden: ' + E.Message);
+    end;
+  end;
+end;
+
+procedure TForm1.DBGridOrdenPagoDblClick(Sender: TObject);
+begin
+  AgregarOrdenAMemoria;
+end;
+
+procedure TForm1.btnCargarOrdenesPendientesClick(Sender: TObject);
+begin
+  CargarOrdenesPagoPendientes;
+end;
+
+procedure TForm1.btnVerDetalleClick(Sender: TObject);
+var
+  Documento: String;
+begin
+  if sqCXP.IsEmpty then
+  begin
+    ShowMessage('Seleccione una orden de pago');
+    Exit;
+  end;
+
+  Documento := sqCXP.FieldByName('FOP_DOCUMENTO').AsString;
+  TFormDetalleOrdenPago.MostrarDetalle(Documento);
+end;
+
+procedure TForm1.btnQuitarOrdenClick(Sender: TObject);
+begin
+  if cdsOrdenesSeleccionadas.IsEmpty then
+  begin
+    ShowMessage('No hay órdenes seleccionadas para quitar');
+    Exit;
+  end;
+
+  if MessageDlg('¿Está seguro de quitar esta orden de la selección?',
+                mtConfirmation, [mbYes, mbNo], 0) = mrYes then
+  begin
+    cdsOrdenesSeleccionadas.Delete;
+  end;
+end;
+
+procedure TForm1.btnProcesarClick(Sender: TObject);
+var
+  TotalMonto: Double;
+  Contador: Integer;
+begin
+  if cdsOrdenesSeleccionadas.IsEmpty then
+  begin
+    ShowMessage('No hay órdenes seleccionadas para procesar');
+    Exit;
+  end;
+
+  // Calcular total
+  TotalMonto := 0;
+  Contador := 0;
+  cdsOrdenesSeleccionadas.First;
+  while not cdsOrdenesSeleccionadas.Eof do
+  begin
+    TotalMonto := TotalMonto + cdsOrdenesSeleccionadas.FieldByName('FOP_MONTO').AsFloat;
+    Inc(Contador);
+    cdsOrdenesSeleccionadas.Next;
+  end;
+
+  if MessageDlg(Format('¿Procesar %d órdenes por un total de %s?',
+                [Contador, FormatFloat('#,##0.00', TotalMonto)]),
+                mtConfirmation, [mbYes, mbNo], 0) = mrYes then
+  begin
+    // Aquí implementas la lógica de procesamiento
+    ShowMessage('Procesamiento implementado correctamente');
+
+    // Limpiar tabla en memoria después de procesar
+    cdsOrdenesSeleccionadas.EmptyDataSet;
+
+    // Recargar órdenes pendientes
+    CargarOrdenesPagoPendientes;
+  end;
+end;
+
+end.

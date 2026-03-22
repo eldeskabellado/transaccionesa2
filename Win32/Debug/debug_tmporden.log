@@ -1,0 +1,48 @@
+08:19:11.053 - 
+08:19:11.054 - ========================================
+08:19:11.054 - === FormShow INICIADO - Documento: 00022123 ===
+08:19:11.054 - === INICIO RECONSTRUCCIÓN TMP_ORDEN ===
+08:19:11.055 - Tabla cerrada
+08:19:11.055 - Intentando EmptyTable...
+08:19:11.056 - ? EmptyTable ejecutado correctamente
+08:19:11.057 - ? Tabla reabierta y lista
+08:19:11.058 - === FIN RECONSTRUCCIÓN ===
+08:19:11.058 - --- ACCIÓN 0: VERIFICAR DOCUMENTO ---
+08:19:11.076 - MySQL opermv abierto, registros: 2
+08:19:11.076 - Comenzando INSERT en TMP_ORDEN desde MySQL...
+08:19:11.076 - Intentando INSERT - Codigo: 001, Doc: 00022123
+08:19:11.076 - INSERT exitoso
+08:19:11.076 - Intentando INSERT - Codigo: BEB22, Doc: 00022123
+08:19:11.077 - INSERT exitoso
+08:19:11.077 - Todos los INSERT completados
+08:19:11.080 - Total registros en TMP_ORDEN: 2
+08:19:11.104 - === FormShow COMPLETADO ===
+08:19:11.105 - ========================================
+08:19:13.706 - === FormClose INICIADO ===
+08:19:13.709 - Registros ANTES del DELETE: 2
+08:19:13.709 - Ejecutando DELETE con documento: 00022123
+08:19:13.712 - Registros DESPUÉS del DELETE: 0
+08:19:13.712 - === FormClose COMPLETADO ===
+08:20:38.058 - 
+08:20:38.059 - ========================================
+08:20:38.059 - === FormShow INICIADO - Documento: 00022034 ===
+08:20:38.060 - === INICIO RECONSTRUCCIÓN TMP_ORDEN ===
+08:20:38.060 - Tabla cerrada
+08:20:38.060 - Intentando EmptyTable...
+08:20:38.062 - ? EmptyTable ejecutado correctamente
+08:20:38.063 - ? Tabla reabierta y lista
+08:20:38.063 - === FIN RECONSTRUCCIÓN ===
+08:20:38.063 - --- ACCIÓN 0: VERIFICAR DOCUMENTO ---
+08:20:38.082 - MySQL opermv abierto, registros: 1
+08:20:38.083 - Comenzando INSERT en TMP_ORDEN desde MySQL...
+08:20:38.083 - Intentando INSERT - Codigo: 75918729, Doc: 00022034
+08:20:38.083 - INSERT exitoso
+08:20:38.084 - Todos los INSERT completados
+08:20:38.086 - Total registros en TMP_ORDEN: 1
+08:20:38.107 - === FormShow COMPLETADO ===
+08:20:38.109 - ========================================
+08:20:42.672 - === FormClose INICIADO ===
+08:20:42.676 - Registros ANTES del DELETE: 1
+08:20:42.676 - Ejecutando DELETE con documento: 00022034
+08:20:42.679 - Registros DESPUÉS del DELETE: 0
+08:20:42.679 - === FormClose COMPLETADO ===

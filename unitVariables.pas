@@ -1,27 +1,133 @@
-unit unitVariables;
+﻿unit unitVariables;
+
 interface
 
 uses
-    dialogs,SysUtils, UnitDatos,Windows, Controls, Forms, StdCtrls, Classes;
+  System.SysUtils, System.IniFiles;
+
 var
-  empresa,
+  // ========================================
+  // CONFIGURACIÓN EVOLUTION API (Mantener por compatibilidad)
+  // ========================================
+  URL_EVOLUTION: string;
+  INSTANCIA_EVOLUTION: string;
+  APIKEY_EVOLUTION: string;
+
+  // ========================================
+  // ⭐ NUEVA CONFIGURACIÓN BAILEYS API ⭐
+  // ========================================
+  URL_BAILEYS: string;
+  APIKEY_BAILEYS: string;  // Opcional, según tu configuración
+
+  // ========================================
+  // CONFIGURACIÓN GENERAL
+  // ========================================
+  NAME_EMPRESA: string;
+  RIF_EMPRESA: string;
+  TELEFONO_EMPRESA: string;
+  EMAIL_EMPRESA: string;
+    empresa,
   usuario, PREFIJO: String;
-  URL_EVOLUTION,
-  APIKEY_EVOLUTION,
-  INSTANCIA_EVOLUTION,
-  NAME_EMPRESA,
-  SERIAL_APP:string;
 
+  // ========================================
+  // CONFIGURACIÓN DE LA APLICACIÓN
+  // ========================================
+  USAR_BAILEYS: Boolean;  // True = Usar Baileys, False = Usar Evolution
 
+procedure CargarConfiguracion;
+procedure GuardarConfiguracion;
+function GetConfigFilePath: string;
 
 implementation
 
+function GetConfigFilePath: string;
+begin
+  // El archivo .ini estará en la misma carpeta del ejecutable
+  Result := ExtractFilePath(ParamStr(0)) + 'config.ini';
+end;
 
-//encriptar datos
+procedure CargarConfiguracion;
+var
+  IniFile: TIniFile;
+  ConfigPath: string;
+begin
+  ConfigPath := GetConfigFilePath;
 
+  IniFile := TIniFile.Create(ConfigPath);
+  try
+    // ========================================
+    // CONFIGURACIÓN EVOLUTION (Legacy)
+    // ========================================
+    URL_EVOLUTION := IniFile.ReadString('EVOLUTION', 'URL', 'https://evolution.miempresa.com');
+    INSTANCIA_EVOLUTION := IniFile.ReadString('EVOLUTION', 'INSTANCIA', 'mi-instancia');
+    APIKEY_EVOLUTION := IniFile.ReadString('EVOLUTION', 'APIKEY', '');
 
+    // ========================================
+    // ⭐ CONFIGURACIÓN BAILEYS ⭐
+    // ========================================
+    URL_BAILEYS := IniFile.ReadString('BAILEYS', 'URL', 'http://localhost:3000');
+    APIKEY_BAILEYS := IniFile.ReadString('BAILEYS', 'APIKEY', '');
 
+    // ========================================
+    // CONFIGURACIÓN GENERAL
+    // ========================================
+    NAME_EMPRESA := IniFile.ReadString('EMPRESA', 'NOMBRE', 'Mi Empresa');
+    RIF_EMPRESA := IniFile.ReadString('EMPRESA', 'RIF', 'J-12345678-9');
+    TELEFONO_EMPRESA := IniFile.ReadString('EMPRESA', 'TELEFONO', '+58 412 1234567');
+    EMAIL_EMPRESA := IniFile.ReadString('EMPRESA', 'EMAIL', 'info@miempresa.com');
 
+    // ========================================
+    // APLICACIÓN
+    // ========================================
+    USAR_BAILEYS := IniFile.ReadBool('APP', 'USAR_BAILEYS', True);
 
+  finally
+    IniFile.Free;
+  end;
+end;
+
+procedure GuardarConfiguracion;
+var
+  IniFile: TIniFile;
+  ConfigPath: string;
+begin
+  ConfigPath := GetConfigFilePath;
+
+  IniFile := TIniFile.Create(ConfigPath);
+  try
+    // ========================================
+    // CONFIGURACIÓN EVOLUTION
+    // ========================================
+    IniFile.WriteString('EVOLUTION', 'URL', URL_EVOLUTION);
+    IniFile.WriteString('EVOLUTION', 'INSTANCIA', INSTANCIA_EVOLUTION);
+    IniFile.WriteString('EVOLUTION', 'APIKEY', APIKEY_EVOLUTION);
+
+    // ========================================
+    // CONFIGURACIÓN BAILEYS
+    // ========================================
+    IniFile.WriteString('BAILEYS', 'URL', URL_BAILEYS);
+    IniFile.WriteString('BAILEYS', 'APIKEY', APIKEY_BAILEYS);
+
+    // ========================================
+    // CONFIGURACIÓN GENERAL
+    // ========================================
+    IniFile.WriteString('EMPRESA', 'NOMBRE', NAME_EMPRESA);
+    IniFile.WriteString('EMPRESA', 'RIF', RIF_EMPRESA);
+    IniFile.WriteString('EMPRESA', 'TELEFONO', TELEFONO_EMPRESA);
+    IniFile.WriteString('EMPRESA', 'EMAIL', EMAIL_EMPRESA);
+
+    // ========================================
+    // APLICACIÓN
+    // ========================================
+    IniFile.WriteBool('APP', 'USAR_BAILEYS', USAR_BAILEYS);
+
+  finally
+    IniFile.Free;
+  end;
+end;
+
+initialization
+  // Cargar configuración al iniciar la aplicación
+  CargarConfiguracion;
 
 end.

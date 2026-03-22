@@ -1,0 +1,78 @@
+object Form1: TForm1
+  Left = 0
+  Top = 0
+  Caption = #195#8220'rdenes de Pago Pendientes'
+  ClientHeight = 976
+  ClientWidth = 996
+  Color = clBtnFace
+  Font.Charset = DEFAULT_CHARSET
+  Font.Color = clWindowText
+  Font.Height = -11
+  Font.Name = 'Tahoma'
+  Font.Style = []
+  OldCreateOrder = False
+  Position = poMainFormCenter
+  OnCreate = FormCreate
+  PixelsPerInch = 96
+  TextHeight = 13
+  object DBGridOrdenPago: TDBGrid
+    Left = 8
+    Top = 40
+    Width = 977
+    Height = 353
+    DataSource = dsqOrdenPago
+    TabOrder = 0
+    TitleFont.Charset = DEFAULT_CHARSET
+    TitleFont.Color = clWindowText
+    TitleFont.Height = -11
+    TitleFont.Name = 'Tahoma'
+    TitleFont.Style = []
+    OnCellClick = DBGridOrdenPagoCellClick
+  end
+  object DBGridOrdenPagoSeleccionada: TDBGrid
+    Left = 8
+    Top = 424
+    Width = 980
+    Height = 472
+    DataSource = dsTMOrdenpagoSeleccionada
+    TabOrder = 1
+    TitleFont.Charset = DEFAULT_CHARSET
+    TitleFont.Color = clWindowText
+    TitleFont.Height = -11
+    TitleFont.Name = 'Tahoma'
+    TitleFont.Style = []
+  end
+  object btnCargarOrdenesPendientes: TButton
+    Left = 8
+    Top = 8
+    Width = 200
+    Height = 25
+    Caption = 'Cargar '#195#8220'rdenes Pendientes'
+    TabOrder = 2
+    OnClick = btnCargarOrdenesPendientesClick
+  end
+  object sqCXP: TDBISAMQuery
+    DatabaseName = 'TuDatabase'
+    EngineVersion = '4.49 Build 4'
+    Params = <>
+    Left = 120
+    Top = 248
+  end
+  object dsqOrdenPago: TDataSource
+    DataSet = sqCXP
+    Left = 256
+    Top = 240
+  end
+  object sqDetalle: TDBISAMQuery
+    DatabaseName = 'TuDatabase'
+    EngineVersion = '4.49 Build 4'
+    Params = <>
+    Left = 120
+    Top = 520
+  end
+  object dsTMOrdenpagoSeleccionada: TDataSource
+    DataSet = sqDetalle
+    Left = 272
+    Top = 520
+  end
+end

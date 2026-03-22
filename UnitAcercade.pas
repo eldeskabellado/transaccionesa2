@@ -6,7 +6,7 @@ uses
   Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants,
   System.Classes, Vcl.Graphics, Vcl.Controls, Vcl.Forms, Vcl.Dialogs,
   Vcl.StdCtrls, Vcl.ExtCtrls, System.JSON, System.NetEncoding,
-  EvolutionAPI;  // ⭐ Usar directamente la clase
+  BaileysAPI;  // ⭐ Usar la nueva clase BaileysAPI
 
 type
   TformConectar = class(TForm)
@@ -21,7 +21,7 @@ type
     procedure FormDestroy(Sender: TObject);
     procedure FormShow(Sender: TObject);
   private
-    FEvolutionAPI: TEvolutionAPI;
+    FBaileysAPI: TBaileysAPI;  // ⭐ Cambio de TEvolutionAPI a TBaileysAPI
     procedure ShowQRImage(const AQRData: string);
   public
     { Public declarations }
@@ -97,7 +97,8 @@ begin
                 lblEstado.Font.Color := clBlue;
 
                 ShowMessage('Código QR generado' + #13#10 +
-                           'Escanéalo con WhatsApp en tu celular');
+                           'Escanéalo con WhatsApp en tu celular' + #13#10 +
+                           '(El QR expira en 60 segundos)');
               finally
                 ImageStream.Free;
               end;
@@ -133,59 +134,80 @@ procedure TformConectar.FormCreate(Sender: TObject);
 begin
   imgQR.Visible := False;
 
-  // ⭐⭐⭐ CAMBIAR POR TUS DATOS REALES ⭐⭐⭐
-  FEvolutionAPI := TEvolutionAPI.Create(
-    URL_EVOLUTION,              // BaseURL
-    INSTANCIA_EVOLUTION,                                 // InstanceID
-    APIKEY_EVOLUTION         // APIKey
+  // ⭐⭐⭐ CREAR INSTANCIA DE BAILEYS API ⭐⭐⭐
+  // Leer configuración desde unitVariables (que viene del .ini)
+  FBaileysAPI := TBaileysAPI.Create(
+    URL_BAILEYS,      // URL del servidor Baileys (ej: http://localhost:3000)
+    APIKEY_BAILEYS    // API Key (opcional, según tu configuración)
   );
 
-  lblEstado.Caption := '✓ API Configurada';
+  lblEstado.Caption := '✓ Baileys API Configurada';
   lblEstado.Font.Color := clGreen;
 end;
 
 procedure TformConectar.FormDestroy(Sender: TObject);
 begin
-  if Assigned(FEvolutionAPI) then
-    FEvolutionAPI.Free;
+  if Assigned(FBaileysAPI) then
+    FBaileysAPI.Free;
 end;
 
 procedure TformConectar.FormShow(Sender: TObject);
 begin
-btnMostrarQRClick(Self);
-lblEmpresa.Caption:=NAME_EMPRESA;
+  btnMostrarQRClick(Self);
+  lblEmpresa.Caption := NAME_EMPRESA;
 end;
 
 procedure TformConectar.btnMostrarQRClick(Sender: TObject);
 var
-  Response: TEvolutionResponse;
+  Response: TBaileysResponse;
   JSONObj, InstanceObj: TJSONObject;
   State: string;
+  IsConnected: Boolean;
 begin
-  lblEstado.Caption := 'Verificando...';
+  lblEstado.Caption := 'Verificando conexión...';
   lblEstado.Font.Color := clBlue;
+  imgQR.Visible := False;  // Ocultar QR al inicio
   Application.ProcessMessages;
 
   try
     // 1. Verificar si ya está conectado
-    Response := FEvolutionAPI.GetInstanceStatus;
+    Response := FBaileysAPI.GetInstanceStatus;
 
     if Response.Success then
     begin
       JSONObj := TJSONObject.ParseJSONValue(Response.Data) as TJSONObject;
       if Assigned(JSONObj) then
       try
-        InstanceObj := JSONObj.GetValue<TJSONObject>('instance');
-        if Assigned(InstanceObj) then
+        // ⭐ Verificar si tiene campo 'connected' (respuesta directa del servidor)
+        if JSONObj.TryGetValue<Boolean>('connected', IsConnected) and IsConnected then
         begin
-          State := InstanceObj.GetValue<string>('state');
+          lblEstado.Caption := '✓ WhatsApp Conectado';
+          lblEstado.Font.Color := clGreen;
+          imgQR.Visible := False;
 
-          if LowerCase(State) = 'open' then
+          var Message: string;
+          if JSONObj.TryGetValue<string>('message', Message) then
+            ShowMessage(Message)
+          else
+            ShowMessage('WhatsApp está conectado y listo para usar.');
+          Exit;
+        end;
+
+        // Verificar formato Evolution (con 'instance')
+        if JSONObj.TryGetValue<TJSONObject>('instance', InstanceObj) and Assigned(InstanceObj) then
+        begin
+          if InstanceObj.TryGetValue<string>('state', State) and (LowerCase(State) = 'open') then
           begin
             lblEstado.Caption := '✓ WhatsApp Conectado';
             lblEstado.Font.Color := clGreen;
             imgQR.Visible := False;
-            ShowMessage('WhatsApp ya está conectado.');
+
+            var UserName: string;
+            if InstanceObj.TryGetValue<string>('profileName', UserName) then
+              ShowMessage('WhatsApp está conectado.' + #13#10 +
+                         'Usuario: ' + UserName)
+            else
+              ShowMessage('WhatsApp está conectado y listo para usar.');
             Exit;
           end;
         end;
@@ -195,33 +217,62 @@ begin
     end;
 
     // 2. Si no está conectado, obtener QR
-    lblEstado.Caption := 'Generando QR...';
+    lblEstado.Caption := 'Generando código QR...';
+    lblEstado.Font.Color := $0000A5FF; // Naranja
     Application.ProcessMessages;
 
-    Response := FEvolutionAPI.GetQRCode;
+    Response := FBaileysAPI.GetQRCode;
 
     if Response.Success then
     begin
-      // Mostrar QR
+      // ⭐ Verificar de nuevo si ya está conectado (por si conectó mientras verificábamos)
+      JSONObj := TJSONObject.ParseJSONValue(Response.Data) as TJSONObject;
+      if Assigned(JSONObj) then
+      try
+        if JSONObj.TryGetValue<Boolean>('connected', IsConnected) and IsConnected then
+        begin
+          lblEstado.Caption := '✓ WhatsApp Conectado';
+          lblEstado.Font.Color := clGreen;
+          imgQR.Visible := False;
+
+          var Message: string;
+          if JSONObj.TryGetValue<string>('message', Message) then
+            ShowMessage(Message)
+          else
+            ShowMessage('WhatsApp está conectado y listo para usar.');
+          Exit;
+        end;
+      finally
+        JSONObj.Free;
+      end;
+
+      // Mostrar QR si no está conectado
       imgQR.Visible := True;
       ShowQRImage(Response.Data);
 
-      lblEstado.Caption := '📱 Escanea el QR';
+      lblEstado.Caption := '📱 Escanea el QR con tu celular';
       lblEstado.Font.Color := clBlue;
     end
     else
     begin
-      ShowMessage('Error obteniendo QR:' + #13#10 + Response.Message);
-      lblEstado.Caption := '✗ Error';
+      ShowMessage('Error obteniendo QR:' + #13#10 +
+                 Response.Message + #13#10#13#10 +
+                 'Verifica que el servidor Baileys esté corriendo en: ' + #13#10 +
+                 URL_BAILEYS);
+      lblEstado.Caption := '✗ Error - Servidor no disponible';
       lblEstado.Font.Color := clRed;
+      imgQR.Visible := False;
     end;
 
   except
     on E: Exception do
     begin
-      ShowMessage('Error: ' + E.Message);
-      lblEstado.Caption := '✗ Error';
+      ShowMessage('Error de conexión: ' + E.Message + #13#10#13#10 +
+                 'Asegúrate que el servidor esté corriendo en:' + #13#10 +
+                 URL_BAILEYS);
+      lblEstado.Caption := '✗ Error de Conexión';
       lblEstado.Font.Color := clRed;
+      imgQR.Visible := False;
     end;
   end;
 end;

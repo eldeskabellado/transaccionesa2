@@ -1,0 +1,185 @@
+unit Unit_VER_FACTURA;
+
+interface
+
+uses
+  Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants, System.Classes, Vcl.Graphics,
+  Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Data.DB, Vcl.StdCtrls, Vcl.ComCtrls,
+  Vcl.Grids, Vcl.DBGrids, dbisamtb, Vcl.ExtCtrls;
+
+type
+  TFormVerFactura = class(TForm)
+    DBGrid1: TDBGrid;
+    DateFecha: TDateTimePicker;
+    Label1: TLabel;
+    sqfacturas: TDBISAMQuery;
+    Button1: TButton;
+    dsqfacturas: TDataSource;
+    sqscim: TDBISAMQuery;
+    rgBusqueda: TRadioGroup;
+    edtBusqueda: TEdit;
+    BtnBuscar: TButton;
+    procedure Button1Click(Sender: TObject);
+    procedure DBGrid1DblClick(Sender: TObject);
+    procedure FormShow(Sender: TObject);
+    procedure BuscarOperaciones(const Tipos: string; Fecha: TDate);
+    procedure rgBusquedaClick(Sender: TObject);
+    procedure BtnBuscarClick(Sender: TObject);
+  private
+    { Private declarations }
+  public
+    { Public declarations }
+  end;
+
+var
+  FormVerFactura: TFormVerFactura;
+  tipooperacion,
+  serie, codigocliente: string;
+  codautorizado,
+  docProceso: Integer;
+
+implementation
+
+{$R *.dfm}
+
+uses UnitDatos, UnitVerificar;
+
+procedure TFormVerFactura.BuscarOperaciones(const Tipos: string; Fecha: TDate);
+begin
+  sqfacturas.Close;
+  sqfacturas.SQL.Clear;
+  sqfacturas.SQL.Text := 'SELECT * FROM SOPERACIONINV ' +
+                         'WHERE FTI_TIPO IN (' + Tipos + ') ' +
+                         'AND FTI_FECHAEMISION = :Tfecha ' +
+                         'ORDER BY FTI_FECHAEMISION ASC';
+  sqfacturas.ParamByName('Tfecha').AsDate := Fecha;
+  sqfacturas.Open;
+end;
+
+procedure TFormVerFactura.Button1Click(Sender: TObject);
+begin
+  // Solo carga los datos del día sin filtrar
+  BuscarOperaciones('11', DateFecha.Date);
+  // Resetear el botón de búsqueda
+  BtnBuscar.Caption := 'Buscar';
+  sqfacturas.Filtered := False;
+  sqfacturas.Filter := '';
+end;
+
+procedure TFormVerFactura.BtnBuscarClick(Sender: TObject);
+var
+  TextoBusqueda: string;
+  FiltroSQL: string;
+begin
+  // Si ya está filtrado, quitar el filtro y mostrar todos
+  if sqfacturas.Filtered then
+  begin
+    sqfacturas.Filtered := False;
+    sqfacturas.Filter := '';
+    BtnBuscar.Caption := 'Buscar';
+    edtBusqueda.Clear;
+    Exit;
+  end;
+
+  // Aplicar filtro
+  TextoBusqueda := Trim(edtBusqueda.Text);
+
+  if TextoBusqueda = '' then
+  begin
+    ShowMessage('Ingrese un valor para buscar');
+    edtBusqueda.SetFocus;
+    Exit;
+  end;
+
+  case rgBusqueda.ItemIndex of
+    0: // Filtrar por FTI_PERSONACONTACTO (case-insensitive)
+      FiltroSQL := 'UPPER(FTI_PERSONACONTACTO) LIKE ''%' +
+                   UpperCase(TextoBusqueda) + '%''';
+
+    1: // Filtrar por FTI_DOCUMENTO (case-insensitive)
+      FiltroSQL := 'UPPER(FTI_DOCUMENTO) LIKE ''%' +
+                   UpperCase(TextoBusqueda) + '%''';
+  else
+    FiltroSQL := '';
+  end;
+
+  if FiltroSQL <> '' then
+  begin
+    sqfacturas.Filter := FiltroSQL;
+    sqfacturas.Filtered := True;
+
+    if sqfacturas.IsEmpty then
+    begin
+      ShowMessage('No se encontraron registros con el criterio de búsqueda');
+      sqfacturas.Filtered := False;
+      sqfacturas.Filter := '';
+    end
+    else
+    begin
+      // Cambiar el caption del botón
+      BtnBuscar.Caption := 'Mostrar Todos';
+    end;
+  end;
+end;
+
+procedure TFormVerFactura.DBGrid1DblClick(Sender: TObject);
+begin
+  sqscim.Close;
+  sqscim.ParamByName('PCODIGOCLIENTE').AsString := sqfacturas.FieldByName('FTI_RESPONSABLE').AsString;
+  sqscim.ParamByName('PCODIGO').AsInteger := sqfacturas.FieldByName('FTI_AUTORIZADOS').AsInteger;
+  sqscim.Open;
+
+  FormVerificar := TFormVerificar.Create(Application);
+  try
+    // AGREGAR TRY-EXCEPT PARA CAPTURAR EL ERROR
+    try
+      with FormVerificar.sqborrar do
+      begin
+        Close;
+        ParamByName('pdocumento').AsString := documento;
+        ExecSQL;
+        // IMPORTANTE: Verificar si tu conexión necesita COMMIT
+        // O si usas DBISAMDatabase:
+        // if Assigned(Database) and Database.InTransaction then
+        //   Database.Commit;
+      end;
+
+      with FormVerificar do
+      begin
+        labeldocumento.Caption := sqfacturas.FieldByName('FTI_DOCUMENTO').AsString;
+        labelCLIENTE.Caption := sqfacturas.FieldByName('FTI_PERSONACONTACTO').AsString;
+        documento := sqfacturas.FieldByName('FTI_DOCUMENTO').AsString;
+        nroregistro := sqfacturas.FieldByName('FTI_AUTOINCREMENT').AsInteger;
+        mmo1.Text := sqfacturas.FieldByName('FTI_DIRECCIONDESPACHO').AsString;
+        vendedor := sqfacturas.FieldByName('FTI_VENDEDORASIGNADO').AsString;
+        nro_scim := sqscim.FieldByName('FCA_CEDULA').AsString;
+        celular := sqfacturas.FieldByName('FTI_TELEFONOCONTACTO').AsString;
+        accion := docProceso;
+        operacion := sqfacturas.FieldByName('FTI_AUTOINCREMENT').AsInteger;
+        ShowModal;
+      end;
+    except
+      on E: Exception do
+      begin
+        ShowMessage('Error al procesar: ' + E.Message + sLineBreak +
+                    'Documento: ' + documento + sLineBreak +
+                    'Clase: ' + E.ClassName);
+        raise; // Re-lanzar la excepción si quieres que se detenga
+      end;
+    end;
+  finally
+    FormVerificar.Free;
+  end;
+end;
+
+procedure TFormVerFactura.FormShow(Sender: TObject);
+begin
+  datefecha.DateTime := now;
+end;
+
+procedure TFormVerFactura.rgBusquedaClick(Sender: TObject);
+begin
+  edtBusqueda.SetFocus;
+end;
+
+end.

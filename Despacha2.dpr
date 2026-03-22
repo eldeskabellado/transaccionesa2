@@ -44,7 +44,11 @@ uses
   EvolutionAPI in 'Evolution\EvolutionAPI.pas',
   EvolutionConfigReader in 'Evolution\EvolutionConfigReader.pas',
   ConfigEncryption in 'Evolution\ConfigEncryption.pas',
-  UnitFormCXP in 'UnitFormCXP.pas' {formCXP};
+  UnitFormCXP in 'UnitFormCXP.pas' {formCXP},
+  UnitOrdenPago in 'UnitOrdenPago.pas' {Form1},
+  UnitDetalleOrdenPago in 'UnitDetalleOrdenPago.pas' {formDetalleOrdenPago},
+  UnitGeneradorArchivosBancarios in 'UnitGeneradorArchivosBancarios.pas',
+  BaileysAPI in 'BaileysAPI.pas';
 
 {$R *.res}
 
@@ -55,7 +59,6 @@ begin
   // Crear solo los componentes esenciales
   Application.CreateForm(Td, d);
   Application.CreateForm(TForm2, Form2);
-
   // NO crear formCXP aquí - se creará cuando se necesite
   // Application.CreateForm(TformCXP, formCXP);  // <-- ELIMINAR ESTA LÍNEA
 
